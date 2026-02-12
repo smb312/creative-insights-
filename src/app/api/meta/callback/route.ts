@@ -70,20 +70,25 @@ export async function GET(request: NextRequest) {
     // Fetch ad accounts
     const adAccounts = await fetchAdAccounts(longLivedResult.access_token);
 
-    // Store each ad account
-    for (const account of adAccounts) {
-      const encryptedToken = encrypt(longLivedResult.access_token);
-      const expiresAt = new Date(
-        Date.now() + longLivedResult.expires_in * 1000
-      );
+    // Clean up any previous pending selections for this brand
+    await prisma.adAccount.deleteMany({
+      where: { brandId, status: "PENDING_SELECTION" },
+    });
 
+    // Store each ad account as PENDING_SELECTION so the user can choose one
+    const encryptedToken = encrypt(longLivedResult.access_token);
+    const expiresAt = new Date(
+      Date.now() + longLivedResult.expires_in * 1000
+    );
+
+    for (const account of adAccounts) {
       await prisma.adAccount.upsert({
         where: { metaAccountId: account.id },
         update: {
           encryptedAccessToken: encryptedToken,
           tokenExpiresAt: expiresAt,
           metaAccountName: account.name,
-          status: "ACTIVE",
+          status: "PENDING_SELECTION",
           brandId,
         },
         create: {
@@ -92,14 +97,14 @@ export async function GET(request: NextRequest) {
           encryptedAccessToken: encryptedToken,
           tokenExpiresAt: expiresAt,
           brandId,
-          status: "ACTIVE",
+          status: "PENDING_SELECTION",
         },
       });
     }
 
     return NextResponse.redirect(
       new URL(
-        `/dashboard/brands/${brandId}?connected=true`,
+        `/dashboard/brands/${brandId}?selectAccount=true`,
         process.env.NEXTAUTH_URL
       )
     );

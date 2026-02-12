@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import {
   RefreshCw,
   Facebook,
@@ -11,6 +11,8 @@ import {
   ShoppingCart,
   TrendingUp,
   AlertTriangle,
+  ArrowRightLeft,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -112,8 +114,9 @@ interface Campaign {
 export default function BrandDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const brandId = params.brandId as string;
-  const justConnected = searchParams.get("connected") === "true";
+  const shouldSelectAccount = searchParams.get("selectAccount") === "true";
 
   const [brand, setBrand] = useState<Brand | null>(null);
   const [insights, setInsights] = useState<InsightsData | null>(null);
@@ -122,6 +125,8 @@ export default function BrandDetailPage() {
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [connectingMeta, setConnectingMeta] = useState(false);
+  const [selectingAccount, setSelectingAccount] = useState(false);
+  const [showAccountPicker, setShowAccountPicker] = useState(false);
 
   // Filters
   const [dateRange, setDateRange] = useState("30d");
@@ -131,6 +136,17 @@ export default function BrandDetailPage() {
   const [chartMetric, setChartMetric] = useState<
     "spend" | "impressions" | "clicks" | "conversions" | "ctr" | "cpm"
   >("spend");
+
+  // Derived state
+  const activeAccount = brand?.adAccounts.find((a) => a.status === "ACTIVE");
+  const pendingAccounts =
+    brand?.adAccounts.filter((a) => a.status === "PENDING_SELECTION") ?? [];
+  const disconnectedAccounts =
+    brand?.adAccounts.filter((a) => a.status === "DISCONNECTED") ?? [];
+  const hasNoAccounts = brand?.adAccounts.length === 0;
+  const needsSelection =
+    (shouldSelectAccount || pendingAccounts.length > 0) && !activeAccount;
+  const switchableAccounts = [...(activeAccount ? [activeAccount] : []), ...disconnectedAccounts];
 
   const loadBrand = useCallback(async () => {
     try {
@@ -202,10 +218,10 @@ export default function BrandDetailPage() {
   }, [loadBrand, loadCampaigns]);
 
   useEffect(() => {
-    if (brand && brand.adAccounts.length > 0) {
+    if (brand && activeAccount) {
       loadInsights();
     }
-  }, [brand, loadInsights]);
+  }, [brand, activeAccount, loadInsights]);
 
   const handleConnectMeta = async () => {
     setConnectingMeta(true);
@@ -224,6 +240,27 @@ export default function BrandDetailPage() {
       console.error("Failed to start Meta OAuth:", err);
     } finally {
       setConnectingMeta(false);
+    }
+  };
+
+  const handleSelectAccount = async (adAccountId: string) => {
+    setSelectingAccount(true);
+    try {
+      const res = await fetch("/api/meta/accounts/select", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brandId, adAccountId }),
+      });
+
+      if (res.ok) {
+        setShowAccountPicker(false);
+        router.replace(`/dashboard/brands/${brandId}`);
+        await loadBrand();
+      }
+    } catch (err) {
+      console.error("Failed to select account:", err);
+    } finally {
+      setSelectingAccount(false);
     }
   };
 
@@ -265,6 +302,86 @@ export default function BrandDetailPage() {
     (c) => c.id === selectedCampaign
   );
 
+  // Account picker UI (for initial selection or switching)
+  const accountsToShow = needsSelection
+    ? pendingAccounts
+    : switchableAccounts;
+
+  if (needsSelection || showAccountPicker) {
+    return (
+      <div>
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-900">{brand.name}</h1>
+          {brand.website && (
+            <p className="text-sm text-gray-500 mt-1">{brand.website}</p>
+          )}
+        </div>
+
+        <Card className="max-w-xl">
+          <CardHeader>
+            <CardTitle>
+              {needsSelection
+                ? "Select an Ad Account"
+                : "Switch Ad Account"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-600 mb-4">
+              {needsSelection
+                ? "Choose which ad account you want to connect and sync data for."
+                : "Select a different ad account to use for this brand."}
+            </p>
+            <div className="space-y-2">
+              {accountsToShow.map((account) => (
+                <button
+                  key={account.id}
+                  onClick={() => handleSelectAccount(account.id)}
+                  disabled={selectingAccount}
+                  className="w-full flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors text-left disabled:opacity-50"
+                >
+                  <div className="flex items-center gap-3">
+                    <Facebook className="h-5 w-5 text-blue-600 shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {account.metaAccountName || account.metaAccountId}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {account.metaAccountId}
+                      </p>
+                    </div>
+                  </div>
+                  {account.status === "ACTIVE" && (
+                    <Badge variant="success">Active</Badge>
+                  )}
+                </button>
+              ))}
+            </div>
+            {showAccountPicker && !needsSelection && (
+              <div className="mt-4 flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAccountPicker(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleConnectMeta}
+                  loading={connectingMeta}
+                >
+                  <Facebook className="mr-2 h-4 w-4" />
+                  Reconnect Meta
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Header */}
@@ -276,15 +393,25 @@ export default function BrandDetailPage() {
           )}
         </div>
         <div className="flex items-center gap-3">
-          {brand.adAccounts.length > 0 && (
+          {activeAccount && (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handleSync(brand.adAccounts[0].id)}
+              onClick={() => handleSync(activeAccount.id)}
               loading={syncing}
             >
               <RefreshCw className="mr-2 h-4 w-4" />
               Sync Data
+            </Button>
+          )}
+          {!hasNoAccounts && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAccountPicker(true)}
+            >
+              <ArrowRightLeft className="mr-2 h-4 w-4" />
+              Change Account
             </Button>
           )}
           <Button
@@ -293,55 +420,33 @@ export default function BrandDetailPage() {
             loading={connectingMeta}
           >
             <Facebook className="mr-2 h-4 w-4" />
-            {brand.adAccounts.length > 0
-              ? "Reconnect Meta"
-              : "Connect Meta Ads"}
+            {activeAccount ? "Reconnect Meta" : "Connect Meta Ads"}
           </Button>
         </div>
       </div>
 
-      {/* Success message */}
-      {justConnected && (
-        <div className="mb-6 rounded-lg bg-green-50 border border-green-200 p-4 text-sm text-green-700">
-          Meta ad account connected successfully! Click &quot;Sync Data&quot; to
-          pull in your ad performance data.
-        </div>
-      )}
-
-      {/* Connected accounts */}
-      {brand.adAccounts.length > 0 && (
+      {/* Active account indicator */}
+      {activeAccount && (
         <div className="mb-6">
-          <div className="flex flex-wrap gap-2">
-            {brand.adAccounts.map((account) => (
-              <div
-                key={account.id}
-                className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm"
-              >
-                <Facebook className="h-4 w-4 text-blue-600" />
-                <span className="text-gray-700">
-                  {account.metaAccountName || account.metaAccountId}
-                </span>
-                <Badge
-                  variant={
-                    account.status === "ACTIVE" ? "success" : "warning"
-                  }
-                >
-                  {account.status}
-                </Badge>
-                {account.lastSyncAt && (
-                  <span className="text-xs text-gray-400">
-                    Last sync:{" "}
-                    {new Date(account.lastSyncAt).toLocaleDateString()}
-                  </span>
-                )}
-              </div>
-            ))}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm inline-flex">
+            <Facebook className="h-4 w-4 text-blue-600" />
+            <span className="text-gray-700">
+              {activeAccount.metaAccountName || activeAccount.metaAccountId}
+            </span>
+            <Check className="h-3.5 w-3.5 text-green-600" />
+            <Badge variant="success">Active</Badge>
+            {activeAccount.lastSyncAt && (
+              <span className="text-xs text-gray-400">
+                Last sync:{" "}
+                {new Date(activeAccount.lastSyncAt).toLocaleDateString()}
+              </span>
+            )}
           </div>
         </div>
       )}
 
       {/* No ad accounts state */}
-      {brand.adAccounts.length === 0 && (
+      {hasNoAccounts && (
         <Card className="text-center py-12 mb-8">
           <CardContent>
             <Facebook className="h-12 w-12 text-blue-400 mx-auto mb-4" />
@@ -361,7 +466,7 @@ export default function BrandDetailPage() {
       )}
 
       {/* Insights Dashboard */}
-      {brand.adAccounts.length > 0 && (
+      {activeAccount && (
         <>
           {/* Filters */}
           <div className="flex flex-wrap gap-3 mb-6">
@@ -562,7 +667,7 @@ export default function BrandDetailPage() {
                   performance insights.
                 </p>
                 <Button
-                  onClick={() => handleSync(brand.adAccounts[0].id)}
+                  onClick={() => handleSync(activeAccount.id)}
                   loading={syncing}
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />
