@@ -296,8 +296,7 @@ function OnboardingContent() {
 
   /* ---- If returning from Meta OAuth, jump to step 5 ---- */
   useEffect(() => {
-    const returnTo = searchParams.get("returnTo");
-    if (returnTo === "/onboarding") {
+    if (searchParams.get("selectAccount") === "true") {
       setStep(5);
     }
   }, [searchParams]);

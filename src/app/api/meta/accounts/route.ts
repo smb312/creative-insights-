@@ -1,7 +1,18 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/session";
-import { fetchAdAccounts, decryptAccessToken } from "@/lib/meta-api";
 import { prisma } from "@/lib/prisma";
+
+/** Map DB status values to the frontend's expected lowercase values */
+function mapStatus(dbStatus: string): "active" | "pending" | null {
+  switch (dbStatus) {
+    case "ACTIVE":
+      return "active";
+    case "PENDING_SELECTION":
+      return "pending";
+    default:
+      return null; // DISCONNECTED or unknown — exclude from response
+  }
+}
 
 export async function GET() {
   try {
@@ -11,19 +22,24 @@ export async function GET() {
     }
 
     const adAccounts = await prisma.adAccount.findMany({
-      where: { userId },
+      where: {
+        userId,
+        status: { in: ["ACTIVE", "PENDING_SELECTION"] },
+      },
+      select: {
+        id: true,
+        metaAccountName: true,
+        status: true,
+      },
     });
 
-    if (adAccounts.length === 0) {
-      return NextResponse.json({ accounts: [] });
-    }
+    const accounts = adAccounts.map((a) => ({
+      id: a.id,
+      name: a.metaAccountName ?? "Unnamed Account",
+      status: mapStatus(a.status),
+    }));
 
-    // Use the first ad account's token to fetch fresh list
-    const account = adAccounts[0];
-    const accessToken = decryptAccessToken(account.encryptedAccessToken);
-    const metaAccounts = await fetchAdAccounts(accessToken);
-
-    return NextResponse.json({ accounts: metaAccounts });
+    return NextResponse.json({ accounts });
   } catch (error) {
     console.error("Error fetching Meta accounts:", error);
     return NextResponse.json(
