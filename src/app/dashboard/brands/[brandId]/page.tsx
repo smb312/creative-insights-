@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   ArrowRightLeft,
   Check,
+  Sparkles,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -23,6 +25,8 @@ import { PerformanceChart } from "@/components/dashboard/performance-chart";
 import { FormatBreakdownChart } from "@/components/dashboard/format-breakdown-chart";
 import { CreativeTable } from "@/components/dashboard/creative-table";
 import { FatigueAlert } from "@/components/dashboard/fatigue-alert";
+import { CreatorVsBrand } from "@/components/dashboard/creator-vs-brand";
+import { CreativeBrief } from "@/components/dashboard/creative-brief";
 import { formatCurrency, formatNumber, formatPercent } from "@/lib/utils";
 
 interface Brand {
@@ -111,6 +115,56 @@ interface Campaign {
   adSets: { id: string; name: string }[];
 }
 
+interface IntelBriefsData {
+  brandName: string;
+  totalAds: number;
+  creatorAdCount: number;
+  brandAdCount: number;
+  creatorMetrics: {
+    spend: number;
+    impressions: number;
+    clicks: number;
+    conversions: number;
+    ctr: number;
+    cpm: number;
+    cpa: number | null;
+    roas: number | null;
+  };
+  brandMetrics: {
+    spend: number;
+    impressions: number;
+    clicks: number;
+    conversions: number;
+    ctr: number;
+    cpm: number;
+    cpa: number | null;
+    roas: number | null;
+  };
+  topCreatorAds: {
+    adId: string;
+    adName: string;
+    creative: {
+      format: string;
+      title: string | null;
+      body: string | null;
+      imageUrl: string | null;
+      thumbnailUrl: string | null;
+    } | null;
+    campaign: { name: string; id: string };
+    metrics: {
+      spend: number;
+      impressions: number;
+      clicks: number;
+      conversions: number;
+      ctr: number;
+      cpm: number;
+      cpa: number | null;
+      roas: number | null;
+    };
+  }[];
+  creatorFormatBreakdown: Record<string, number>;
+}
+
 export default function BrandDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -127,6 +181,14 @@ export default function BrandDetailPage() {
   const [connectingMeta, setConnectingMeta] = useState(false);
   const [selectingAccount, setSelectingAccount] = useState(false);
   const [showAccountPicker, setShowAccountPicker] = useState(false);
+  const [activeTab, setActiveTab] = useState<"insights" | "intel-briefs">("insights");
+
+  // Intel Briefs state
+  const [intelData, setIntelData] = useState<IntelBriefsData | null>(null);
+  const [intelLoading, setIntelLoading] = useState(false);
+  const [briefContent, setBriefContent] = useState<string | null>(null);
+  const [briefGenerating, setBriefGenerating] = useState(false);
+  const [briefError, setBriefError] = useState<string | null>(null);
 
   // Filters
   const [dateRange, setDateRange] = useState("30d");
@@ -212,6 +274,65 @@ export default function BrandDetailPage() {
     }
   }, [brandId]);
 
+  const loadIntelBriefs = useCallback(async () => {
+    setIntelLoading(true);
+    setBriefContent(null);
+    setBriefError(null);
+    try {
+      const dateRangeMap: Record<string, number> = {
+        "7d": 7,
+        "14d": 14,
+        "30d": 30,
+        "90d": 90,
+      };
+      const days = dateRangeMap[dateRange] || 30;
+      const dateTo = new Date();
+      const dateFrom = new Date();
+      dateFrom.setDate(dateTo.getDate() - days);
+
+      const queryParams = new URLSearchParams({
+        brandId,
+        dateFrom: dateFrom.toISOString().split("T")[0],
+        dateTo: dateTo.toISOString().split("T")[0],
+      });
+
+      const res = await fetch(`/api/intel-briefs?${queryParams.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setIntelData(data);
+      }
+    } catch (err) {
+      console.error("Failed to load intel briefs:", err);
+    } finally {
+      setIntelLoading(false);
+    }
+  }, [brandId, dateRange]);
+
+  const generateBrief = useCallback(async () => {
+    if (!intelData) return;
+    setBriefGenerating(true);
+    setBriefError(null);
+    try {
+      const res = await fetch("/api/intel-briefs/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(intelData),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBriefContent(data.brief);
+      } else {
+        const data = await res.json();
+        setBriefError(data.error || "Failed to generate brief");
+      }
+    } catch (err) {
+      console.error("Failed to generate brief:", err);
+      setBriefError("Failed to generate brief. Please try again.");
+    } finally {
+      setBriefGenerating(false);
+    }
+  }, [intelData]);
+
   useEffect(() => {
     loadBrand();
     loadCampaigns();
@@ -222,6 +343,12 @@ export default function BrandDetailPage() {
       loadInsights();
     }
   }, [brand, activeAccount, loadInsights]);
+
+  useEffect(() => {
+    if (brand && activeAccount && activeTab === "intel-briefs" && !intelData) {
+      loadIntelBriefs();
+    }
+  }, [brand, activeAccount, activeTab, intelData, loadIntelBriefs]);
 
   const handleConnectMeta = async () => {
     setConnectingMeta(true);
@@ -465,8 +592,36 @@ export default function BrandDetailPage() {
         </Card>
       )}
 
-      {/* Insights Dashboard */}
+      {/* Tabs */}
       {activeAccount && (
+        <div className="flex border-b border-gray-200 mb-6">
+          <button
+            onClick={() => setActiveTab("insights")}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "insights"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <BarChart3 className="h-4 w-4" />
+            Performance Insights
+          </button>
+          <button
+            onClick={() => setActiveTab("intel-briefs")}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "intel-briefs"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <Sparkles className="h-4 w-4" />
+            Creative Intel Briefs
+          </button>
+        </div>
+      )}
+
+      {/* Insights Dashboard */}
+      {activeAccount && activeTab === "insights" && (
         <>
           {/* Filters */}
           <div className="flex flex-wrap gap-3 mb-6">
@@ -665,6 +820,292 @@ export default function BrandDetailPage() {
                 <p className="text-gray-500 mb-6">
                   Sync your ad account data to start seeing creative
                   performance insights.
+                </p>
+                <Button
+                  onClick={() => handleSync(activeAccount.id)}
+                  loading={syncing}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Sync Now
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+
+      {/* Creative Intel Briefs Tab */}
+      {activeAccount && activeTab === "intel-briefs" && (
+        <>
+          {/* Date range filter */}
+          <div className="flex flex-wrap items-center gap-3 mb-6">
+            <Select
+              value={dateRange}
+              onChange={(e) => {
+                setDateRange(e.target.value);
+                setIntelData(null);
+              }}
+            >
+              <option value="7d">Last 7 days</option>
+              <option value="14d">Last 14 days</option>
+              <option value="30d">Last 30 days</option>
+              <option value="90d">Last 90 days</option>
+            </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadIntelBriefs}
+              loading={intelLoading}
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh Data
+            </Button>
+          </div>
+
+          {intelLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+            </div>
+          ) : intelData ? (
+            <div className="space-y-6">
+              {/* Summary cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <MetricCard
+                  title="Total Ads"
+                  value={formatNumber(intelData.totalAds)}
+                  icon={<BarChart3 className="h-4 w-4 text-gray-600" />}
+                />
+                <MetricCard
+                  title="Creator Ads"
+                  value={formatNumber(intelData.creatorAdCount)}
+                  icon={<Sparkles className="h-4 w-4 text-blue-600" />}
+                />
+                <MetricCard
+                  title="Brand Ads"
+                  value={formatNumber(intelData.brandAdCount)}
+                  icon={<Eye className="h-4 w-4 text-purple-600" />}
+                />
+                <MetricCard
+                  title="Creator ROAS"
+                  value={
+                    intelData.creatorMetrics.roas !== null
+                      ? `${intelData.creatorMetrics.roas.toFixed(2)}x`
+                      : "N/A"
+                  }
+                  icon={<TrendingUp className="h-4 w-4 text-green-600" />}
+                />
+              </div>
+
+              {/* Comparison table */}
+              <CreatorVsBrand
+                creatorCount={intelData.creatorAdCount}
+                brandCount={intelData.brandAdCount}
+                creatorMetrics={intelData.creatorMetrics}
+                brandMetrics={intelData.brandMetrics}
+              />
+
+              {/* Top creator ads */}
+              {intelData.topCreatorAds.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base">
+                        Top Performing Creator Ads
+                      </CardTitle>
+                      <Badge variant="info">
+                        {intelData.topCreatorAds.length} ad
+                        {intelData.topCreatorAds.length !== 1 ? "s" : ""}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-100">
+                            <th className="text-left py-3 px-2 font-medium text-gray-500">
+                              Creative
+                            </th>
+                            <th className="text-left py-3 px-2 font-medium text-gray-500">
+                              Format
+                            </th>
+                            <th className="text-right py-3 px-2 font-medium text-gray-500">
+                              Spend
+                            </th>
+                            <th className="text-right py-3 px-2 font-medium text-gray-500">
+                              CTR
+                            </th>
+                            <th className="text-right py-3 px-2 font-medium text-gray-500">
+                              CPM
+                            </th>
+                            <th className="text-right py-3 px-2 font-medium text-gray-500">
+                              ROAS
+                            </th>
+                            <th className="text-right py-3 px-2 font-medium text-gray-500">
+                              Conv.
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {intelData.topCreatorAds.map((ad) => (
+                            <tr
+                              key={ad.adId}
+                              className="border-b border-gray-50 hover:bg-gray-50"
+                            >
+                              <td className="py-3 px-2">
+                                <div className="flex items-center gap-3">
+                                  {ad.creative?.thumbnailUrl ||
+                                  ad.creative?.imageUrl ? (
+                                    <img
+                                      src={
+                                        ad.creative.thumbnailUrl ||
+                                        ad.creative.imageUrl ||
+                                        ""
+                                      }
+                                      alt=""
+                                      className="w-10 h-10 rounded object-cover bg-gray-100"
+                                    />
+                                  ) : (
+                                    <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
+                                      Ad
+                                    </div>
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="font-medium text-gray-900 truncate max-w-[200px]">
+                                      {ad.adName}
+                                    </p>
+                                    <p className="text-xs text-gray-500 truncate max-w-[200px]">
+                                      {ad.campaign.name}
+                                    </p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-3 px-2">
+                                <Badge variant="info">
+                                  {ad.creative?.format || "N/A"}
+                                </Badge>
+                              </td>
+                              <td className="py-3 px-2 text-right font-medium">
+                                {formatCurrency(ad.metrics.spend)}
+                              </td>
+                              <td className="py-3 px-2 text-right">
+                                {formatPercent(ad.metrics.ctr)}
+                              </td>
+                              <td className="py-3 px-2 text-right">
+                                {formatCurrency(ad.metrics.cpm)}
+                              </td>
+                              <td className="py-3 px-2 text-right">
+                                {ad.metrics.roas !== null
+                                  ? `${ad.metrics.roas.toFixed(2)}x`
+                                  : "\u2014"}
+                              </td>
+                              <td className="py-3 px-2 text-right">
+                                {formatNumber(ad.metrics.conversions)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Format breakdown for creator ads */}
+              {Object.keys(intelData.creatorFormatBreakdown).length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">
+                      Creator Ad Format Breakdown
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-3">
+                      {Object.entries(intelData.creatorFormatBreakdown).map(
+                        ([format, count]) => (
+                          <div
+                            key={format}
+                            className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg"
+                          >
+                            <Badge variant="info">{format}</Badge>
+                            <span className="text-sm font-medium text-gray-700">
+                              {count} ad{count !== 1 ? "s" : ""}
+                            </span>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Generate brief button */}
+              {!briefContent && (
+                <Card className="border-dashed border-blue-300 bg-blue-50/30">
+                  <CardContent className="py-8 text-center">
+                    <Sparkles className="h-10 w-10 text-blue-400 mx-auto mb-3" />
+                    <h3 className="text-base font-medium text-gray-900 mb-2">
+                      Generate AI Creative Brief
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-4 max-w-md mx-auto">
+                      Analyze your creator ad performance data and generate an
+                      actionable creative brief you can hand directly to
+                      creators.
+                    </p>
+                    {briefError && (
+                      <p className="text-sm text-red-600 mb-3">{briefError}</p>
+                    )}
+                    <Button
+                      onClick={generateBrief}
+                      loading={briefGenerating}
+                      disabled={intelData.creatorAdCount === 0 && intelData.brandAdCount === 0}
+                    >
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      {briefGenerating
+                        ? "Generating Brief..."
+                        : "Generate Brief"}
+                    </Button>
+                    {intelData.creatorAdCount === 0 &&
+                      intelData.brandAdCount === 0 && (
+                        <p className="text-xs text-gray-400 mt-2">
+                          No ad data available to generate a brief.
+                        </p>
+                      )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Brief content */}
+              {briefContent && (
+                <div className="space-y-4">
+                  <CreativeBrief
+                    brief={briefContent}
+                    brandName={intelData.brandName}
+                  />
+                  <div className="flex justify-center">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={generateBrief}
+                      loading={briefGenerating}
+                    >
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Regenerate Brief
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Card className="text-center py-12">
+              <CardContent>
+                <Sparkles className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No data yet
+                </h3>
+                <p className="text-gray-500 mb-6">
+                  Sync your ad account data to analyze creator vs brand ad
+                  performance.
                 </p>
                 <Button
                   onClick={() => handleSync(activeAccount.id)}
