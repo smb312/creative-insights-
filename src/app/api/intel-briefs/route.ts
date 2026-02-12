@@ -47,6 +47,74 @@ function isCreatorAd(ad: {
   return false;
 }
 
+/**
+ * Extract a creator handle or name from ad text fields.
+ * Looks for @handles first, then falls back to name patterns like
+ * "ft. Name", "feat. Name", "x Name", or "paid partnership with Name".
+ */
+function extractCreatorHandle(ad: {
+  name: string;
+  creative: { name: string | null; title: string | null; body: string | null } | null;
+}): string | null {
+  const fields = [
+    ad.name,
+    ad.creative?.name,
+    ad.creative?.title,
+    ad.creative?.body,
+  ].filter(Boolean) as string[];
+
+  // First pass: look for @handle
+  for (const field of fields) {
+    const handleMatch = field.match(/@(\w{2,30})/);
+    if (handleMatch) return `@${handleMatch[1]}`;
+  }
+
+  // Second pass: look for name patterns in the text
+  for (const field of fields) {
+    const lower = field.toLowerCase();
+
+    // "paid partnership with <Name>"
+    const partnershipMatch = field.match(
+      /paid\s+partnership\s+with\s+([A-Z][\w\s.'-]{1,30})/i
+    );
+    if (partnershipMatch) return partnershipMatch[1].trim();
+
+    // "ft. <Name>" or "feat. <Name>"
+    const ftMatch = field.match(/(?:ft\.?|feat\.?)\s+([A-Z][\w\s.'-]{1,30})/i);
+    if (ftMatch) return ftMatch[1].trim();
+
+    // "featuring <Name>"
+    const featuringMatch = field.match(
+      /featuring\s+([A-Z][\w\s.'-]{1,30})/i
+    );
+    if (featuringMatch) return featuringMatch[1].trim();
+
+    // " x <Name>" (collaboration pattern, e.g., "Brand x CreatorName")
+    const collabMatch = field.match(/\s+x\s+([A-Z][\w\s.'-]{1,30})/);
+    if (collabMatch) return collabMatch[1].trim();
+
+    // "collab with <Name>"
+    const collabWithMatch = field.match(
+      /collab(?:oration)?\s+with\s+([A-Z][\w\s.'-]{1,30})/i
+    );
+    if (collabWithMatch) return collabWithMatch[1].trim();
+
+    // Check for creator/influencer/ugc signals with a name after them
+    if (
+      lower.includes("creator") ||
+      lower.includes("influencer") ||
+      lower.includes("ugc")
+    ) {
+      const creatorNameMatch = field.match(
+        /(?:creator|influencer|ugc)\s*[-:]\s*([A-Z][\w\s.'-]{1,30})/i
+      );
+      if (creatorNameMatch) return creatorNameMatch[1].trim();
+    }
+  }
+
+  return null;
+}
+
 interface AggregatedMetrics {
   spend: number;
   impressions: number;
@@ -193,6 +261,7 @@ export async function GET(request: NextRequest) {
         return {
           adId: ad.id,
           adName: ad.name,
+          creatorHandle: extractCreatorHandle(ad),
           creative: ad.creative,
           campaign: ad.adSet.campaign,
           metrics: {
@@ -209,6 +278,43 @@ export async function GET(request: NextRequest) {
       })
       .sort((a, b) => b.metrics.spend - a.metrics.spend);
 
+    // Aggregate by creator handle for "Top Creators by Spend"
+    const creatorMap = new Map<
+      string,
+      { spend: number; impressions: number; clicks: number; conversions: number; adCount: number; roasSum: number; roasCount: number }
+    >();
+
+    for (const ad of creatorAdPerformance) {
+      const handle = ad.creatorHandle || "Unknown Creator";
+      const existing = creatorMap.get(handle) || {
+        spend: 0, impressions: 0, clicks: 0, conversions: 0,
+        adCount: 0, roasSum: 0, roasCount: 0,
+      };
+      existing.spend += ad.metrics.spend;
+      existing.impressions += ad.metrics.impressions;
+      existing.clicks += ad.metrics.clicks;
+      existing.conversions += ad.metrics.conversions;
+      existing.adCount += 1;
+      if (ad.metrics.roas !== null) {
+        existing.roasSum += ad.metrics.roas;
+        existing.roasCount += 1;
+      }
+      creatorMap.set(handle, existing);
+    }
+
+    const topCreators = [...creatorMap.entries()]
+      .map(([handle, data]) => ({
+        handle,
+        adCount: data.adCount,
+        spend: data.spend,
+        conversions: data.conversions,
+        avgRoas: data.roasCount > 0 ? data.roasSum / data.roasCount : null,
+        avgCtr: data.impressions > 0 ? (data.clicks / data.impressions) * 100 : 0,
+        avgCpm: data.impressions > 0 ? (data.spend / data.impressions) * 1000 : 0,
+      }))
+      .sort((a, b) => b.spend - a.spend)
+      .slice(0, 5);
+
     // Format breakdown for creator ads
     const creatorFormatBreakdown: Record<string, number> = {};
     for (const ad of creatorAds) {
@@ -224,6 +330,7 @@ export async function GET(request: NextRequest) {
       creatorMetrics,
       brandMetrics,
       topCreatorAds: creatorAdPerformance.slice(0, 10),
+      topCreators,
       creatorFormatBreakdown,
     });
   } catch (error) {

@@ -143,6 +143,7 @@ interface IntelBriefsData {
   topCreatorAds: {
     adId: string;
     adName: string;
+    creatorHandle: string | null;
     creative: {
       format: string;
       title: string | null;
@@ -161,6 +162,15 @@ interface IntelBriefsData {
       cpa: number | null;
       roas: number | null;
     };
+  }[];
+  topCreators: {
+    handle: string;
+    adCount: number;
+    spend: number;
+    conversions: number;
+    avgRoas: number | null;
+    avgCtr: number;
+    avgCpm: number;
   }[];
   creatorFormatBreakdown: Record<string, number>;
 }
@@ -927,6 +937,9 @@ export default function BrandDetailPage() {
                               Creative
                             </th>
                             <th className="text-left py-3 px-2 font-medium text-gray-500">
+                              Creator
+                            </th>
+                            <th className="text-left py-3 px-2 font-medium text-gray-500">
                               Format
                             </th>
                             <th className="text-right py-3 px-2 font-medium text-gray-500">
@@ -981,6 +994,17 @@ export default function BrandDetailPage() {
                                 </div>
                               </td>
                               <td className="py-3 px-2">
+                                {ad.creatorHandle ? (
+                                  <span className="text-sm font-medium text-blue-600">
+                                    {ad.creatorHandle}
+                                  </span>
+                                ) : (
+                                  <span className="text-sm text-gray-400">
+                                    Unknown
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-3 px-2">
                                 <Badge variant="info">
                                   {ad.creative?.format || "N/A"}
                                 </Badge>
@@ -1001,6 +1025,94 @@ export default function BrandDetailPage() {
                               </td>
                               <td className="py-3 px-2 text-right">
                                 {formatNumber(ad.metrics.conversions)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Top Creators by Spend */}
+              {intelData.topCreators.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base">
+                        Top Creators by Spend
+                      </CardTitle>
+                      <Badge variant="success">
+                        {intelData.topCreators.length} creator
+                        {intelData.topCreators.length !== 1 ? "s" : ""}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-100">
+                            <th className="text-left py-3 px-2 font-medium text-gray-500">
+                              #
+                            </th>
+                            <th className="text-left py-3 px-2 font-medium text-gray-500">
+                              Creator
+                            </th>
+                            <th className="text-right py-3 px-2 font-medium text-gray-500">
+                              Total Spend
+                            </th>
+                            <th className="text-right py-3 px-2 font-medium text-gray-500">
+                              Ads
+                            </th>
+                            <th className="text-right py-3 px-2 font-medium text-gray-500">
+                              Avg ROAS
+                            </th>
+                            <th className="text-right py-3 px-2 font-medium text-gray-500">
+                              Avg CTR
+                            </th>
+                            <th className="text-right py-3 px-2 font-medium text-gray-500">
+                              Avg CPM
+                            </th>
+                            <th className="text-right py-3 px-2 font-medium text-gray-500">
+                              Conv.
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {intelData.topCreators.map((creator, index) => (
+                            <tr
+                              key={creator.handle}
+                              className="border-b border-gray-50 hover:bg-gray-50"
+                            >
+                              <td className="py-3 px-2 text-sm text-gray-400">
+                                {index + 1}
+                              </td>
+                              <td className="py-3 px-2">
+                                <span className="text-sm font-medium text-blue-600">
+                                  {creator.handle}
+                                </span>
+                              </td>
+                              <td className="py-3 px-2 text-right font-medium">
+                                {formatCurrency(creator.spend)}
+                              </td>
+                              <td className="py-3 px-2 text-right">
+                                {creator.adCount}
+                              </td>
+                              <td className="py-3 px-2 text-right">
+                                {creator.avgRoas !== null
+                                  ? `${creator.avgRoas.toFixed(2)}x`
+                                  : "\u2014"}
+                              </td>
+                              <td className="py-3 px-2 text-right">
+                                {formatPercent(creator.avgCtr)}
+                              </td>
+                              <td className="py-3 px-2 text-right">
+                                {formatCurrency(creator.avgCpm)}
+                              </td>
+                              <td className="py-3 px-2 text-right">
+                                {formatNumber(creator.conversions)}
                               </td>
                             </tr>
                           ))}
