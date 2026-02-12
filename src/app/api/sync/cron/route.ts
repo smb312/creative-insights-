@@ -215,15 +215,21 @@ export async function POST(request: NextRequest) {
 
                   const roas = insight.purchase_roas?.[0]?.value;
 
+                  const insightAny = insight as unknown as Record<string, string>;
+                  const ageRange = insightAny.age || "all";
+                  const gender = insightAny.gender || "all";
+                  const placement = insightAny.publisher_platform || "all";
+                  const platform = insightAny.platform_position || "all";
+
                   await prisma.adMetric.upsert({
                     where: {
                       adId_date_ageRange_gender_placement_platform: {
                         adId: dbAd.id,
                         date: new Date(insight.date_start),
-                        ageRange: null as unknown as string,
-                        gender: null as unknown as string,
-                        placement: null as unknown as string,
-                        platform: null as unknown as string,
+                        ageRange,
+                        gender,
+                        placement,
+                        platform,
                       },
                     },
                     update: {
@@ -241,6 +247,10 @@ export async function POST(request: NextRequest) {
                     create: {
                       adId: dbAd.id,
                       date: new Date(insight.date_start),
+                      ageRange,
+                      gender,
+                      placement,
+                      platform,
                       spend: parseFloat(insight.spend || "0"),
                       impressions: parseInt(insight.impressions || "0"),
                       clicks: parseInt(insight.clicks || "0"),

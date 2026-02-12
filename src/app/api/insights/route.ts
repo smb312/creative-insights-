@@ -65,10 +65,10 @@ export async function GET(request: NextRequest) {
           where: {
             ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {}),
             // Only get aggregate rows (no breakdown dimensions)
-            ageRange: null,
-            gender: null,
-            placement: null,
-            platform: null,
+            ageRange: "all",
+            gender: "all",
+            placement: "all",
+            platform: "all",
           },
           orderBy: { date: "asc" },
         },

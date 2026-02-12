@@ -177,11 +177,11 @@ model AdMetric {
   reach        Int      @default(0)
   frequency    Float    @default(0)
 
-  // Breakdown fields (nullable — only populated for breakdown rows)
-  ageRange     String?
-  gender       String?
-  placement    String?
-  platform     String?
+  // Breakdown fields (default "all" for aggregate rows)
+  ageRange     String   @default("all")
+  gender       String   @default("all")
+  placement    String   @default("all")
+  platform     String   @default("all")
 
   createdAt    DateTime @default(now())
 
