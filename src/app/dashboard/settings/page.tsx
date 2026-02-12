@@ -43,22 +43,11 @@ export default function SettingsPage() {
               to read your ad data.
             </p>
             <div className="space-y-2">
-              <div className="flex items-center justify-between py-2 border-b border-gray-100">
+              <div className="flex items-center justify-between py-2">
                 <div>
                   <p className="text-sm font-medium text-gray-900">ads_read</p>
                   <p className="text-xs text-gray-500">
-                    Read ad campaigns, ad sets, and ads
-                  </p>
-                </div>
-                <Badge variant="info">Required</Badge>
-              </div>
-              <div className="flex items-center justify-between py-2">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    read_insights
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Read ad performance metrics and breakdowns
+                    Read ad campaigns, ad sets, ads, and performance metrics
                   </p>
                 </div>
                 <Badge variant="info">Required</Badge>

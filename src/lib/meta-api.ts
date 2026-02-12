@@ -77,7 +77,7 @@ export function getMetaOAuthUrl(redirectUri: string, state: string): string {
     client_id: process.env.META_APP_ID || "",
     redirect_uri: redirectUri,
     state,
-    scope: "ads_read,read_insights",
+    scope: "ads_read",
     response_type: "code",
   });
 
