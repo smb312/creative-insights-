@@ -345,8 +345,8 @@ function OnboardingContent() {
     try {
       const res = await fetch("/api/meta/accounts");
       if (res.ok) {
-        const accounts: MetaAdAccount[] = await res.json();
-        setMetaAccounts(accounts);
+        const { accounts } = await res.json();
+        setMetaAccounts(accounts ?? []);
       }
     } catch {
       // handle silently
