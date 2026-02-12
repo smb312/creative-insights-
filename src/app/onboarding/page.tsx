@@ -81,6 +81,69 @@ const DEFAULT_DATA: OnboardingData = {
   additionalNotes: "",
 };
 
+/* ------------------------------------------------------------------ */
+/*  Field mapping: frontend <-> Prisma                                 */
+/* ------------------------------------------------------------------ */
+
+/** Map Prisma/API field names → frontend field names */
+function mapProfileToForm(profile: Record<string, unknown>): Partial<OnboardingData> {
+  return {
+    brandName: (profile.brandName as string) ?? "",
+    websiteUrl: (profile.websiteUrl as string) ?? "",
+    industry: (profile.industry as string) ?? "",
+    industryOther: (profile.industryOther as string) ?? "",
+    monthlyRevenue: (profile.monthlyRevenueRange as string) ?? "",
+    businessAge: (profile.businessAge as string) ?? "",
+    targetCustomer: (profile.targetCustomer as string) ?? "",
+    averageOrderValue:
+      profile.averageOrderValue != null
+        ? String(profile.averageOrderValue)
+        : "",
+    acquisitionFocus: (profile.acquisitionFocus as string) ?? "",
+    brandDifferentiator: (profile.uniqueDifferentiator as string) ?? "",
+    monthlyAdSpend: (profile.monthlyAdSpendRange as string) ?? "",
+    adPlatforms: (profile.activeAdPlatforms as string[]) ?? [],
+    creatorContent: (profile.usesCreatorContent as string) ?? "",
+    partnershipAds: (profile.usesPartnershipAds as string) ?? "",
+    biggestChallenges: (profile.biggestChallenges as string[]) ?? [],
+    challengesOther: (profile.challengesOther as string) ?? "",
+    competitor1: (profile.competitor1 as string) ?? "",
+    competitor2: (profile.competitor2 as string) ?? "",
+    competitor3: (profile.competitor3 as string) ?? "",
+    briefValuePreferences: (profile.briefValuePreferences as string[]) ?? [],
+    additionalNotes: (profile.additionalNotes as string) ?? "",
+  };
+}
+
+/** Map frontend field names → Prisma column names for the API */
+function mapFormToProfile(data: OnboardingData): Record<string, unknown> {
+  return {
+    brandName: data.brandName,
+    websiteUrl: data.websiteUrl,
+    industry: data.industry,
+    industryOther: data.industryOther,
+    monthlyRevenueRange: data.monthlyRevenue,
+    businessAge: data.businessAge,
+    targetCustomer: data.targetCustomer,
+    averageOrderValue: data.averageOrderValue
+      ? parseFloat(data.averageOrderValue)
+      : null,
+    acquisitionFocus: data.acquisitionFocus,
+    uniqueDifferentiator: data.brandDifferentiator,
+    monthlyAdSpendRange: data.monthlyAdSpend,
+    activeAdPlatforms: data.adPlatforms,
+    usesCreatorContent: data.creatorContent,
+    usesPartnershipAds: data.partnershipAds,
+    biggestChallenges: data.biggestChallenges,
+    challengesOther: data.challengesOther,
+    competitor1: data.competitor1,
+    competitor2: data.competitor2,
+    competitor3: data.competitor3,
+    briefValuePreferences: data.briefValuePreferences,
+    additionalNotes: data.additionalNotes,
+  };
+}
+
 const TOTAL_STEPS = 5;
 
 const STEP_LABELS = [
@@ -217,8 +280,10 @@ function OnboardingContent() {
       try {
         const res = await fetch("/api/onboarding");
         if (res.ok) {
-          const existing = await res.json();
-          setData((prev) => ({ ...prev, ...existing }));
+          const { profile } = await res.json();
+          if (profile) {
+            setData((prev) => ({ ...prev, ...mapProfileToForm(profile) }));
+          }
         }
       } catch {
         // If the endpoint fails, just start fresh
@@ -244,7 +309,7 @@ function OnboardingContent() {
       const res = await fetch("/api/onboarding", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(mapFormToProfile(data)),
       });
       return res.ok;
     } catch {
@@ -261,7 +326,7 @@ function OnboardingContent() {
       const res = await fetch("/api/onboarding", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, onboardingCompleted: true }),
+        body: JSON.stringify({ ...mapFormToProfile(data), onboardingCompleted: true }),
       });
       if (res.ok) {
         setCompleted(true);
