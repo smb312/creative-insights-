@@ -10,20 +10,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { brandId } = body;
-
-    if (!brandId) {
-      return NextResponse.json(
-        { error: "Brand ID is required" },
-        { status: 400 }
-      );
+    // Accept optional returnTo for post-callback redirect
+    let returnTo = "/onboarding";
+    try {
+      const body = await request.json();
+      if (body.returnTo) returnTo = body.returnTo;
+    } catch {
+      // no body is fine
     }
 
     const state = randomBytes(32).toString("hex");
-    // Encode brandId and userId in state for the callback
     const statePayload = Buffer.from(
-      JSON.stringify({ brandId, userId, nonce: state })
+      JSON.stringify({ userId, returnTo, nonce: state })
     ).toString("base64url");
 
     const redirectUri = `${process.env.NEXTAUTH_URL}/api/meta/callback`;

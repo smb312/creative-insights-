@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Decode state
-    let stateData: { brandId: string; userId: string };
+    let stateData: { userId: string; returnTo?: string };
     try {
       stateData = JSON.parse(
         Buffer.from(stateParam, "base64url").toString()
@@ -47,16 +47,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { brandId, userId } = stateData;
+    const { userId, returnTo } = stateData;
 
-    // Verify the brand belongs to the user
-    const brand = await prisma.brand.findFirst({
-      where: { id: brandId, userId },
+    // Verify user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
     });
 
-    if (!brand) {
+    if (!user) {
       return NextResponse.redirect(
-        new URL("/dashboard?error=Brand+not+found", process.env.NEXTAUTH_URL)
+        new URL("/dashboard?error=User+not+found", process.env.NEXTAUTH_URL)
       );
     }
 
@@ -70,12 +70,12 @@ export async function GET(request: NextRequest) {
     // Fetch ad accounts
     const adAccounts = await fetchAdAccounts(longLivedResult.access_token);
 
-    // Clean up any previous pending selections for this brand
+    // Clean up any previous pending selections for this user
     await prisma.adAccount.deleteMany({
-      where: { brandId, status: "PENDING_SELECTION" },
+      where: { userId, status: "PENDING_SELECTION" },
     });
 
-    // Store each ad account as PENDING_SELECTION so the user can choose one
+    // Store each ad account as PENDING_SELECTION
     const encryptedToken = encrypt(longLivedResult.access_token);
     const expiresAt = new Date(
       Date.now() + longLivedResult.expires_in * 1000
@@ -89,22 +89,23 @@ export async function GET(request: NextRequest) {
           tokenExpiresAt: expiresAt,
           metaAccountName: account.name,
           status: "PENDING_SELECTION",
-          brandId,
+          userId,
         },
         create: {
           metaAccountId: account.id,
           metaAccountName: account.name,
           encryptedAccessToken: encryptedToken,
           tokenExpiresAt: expiresAt,
-          brandId,
+          userId,
           status: "PENDING_SELECTION",
         },
       });
     }
 
+    const redirectPath = returnTo || "/onboarding";
     return NextResponse.redirect(
       new URL(
-        `/dashboard/brands/${brandId}?selectAccount=true`,
+        `${redirectPath}?selectAccount=true`,
         process.env.NEXTAUTH_URL
       )
     );

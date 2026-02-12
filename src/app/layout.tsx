@@ -3,9 +3,9 @@ import "./globals.css";
 import { SessionProvider } from "@/components/providers/session-provider";
 
 export const metadata: Metadata = {
-  title: "Creative Insights - Ad Performance Analytics",
+  title: "Weekly CMO Brief — Free AI-Powered Ad Performance Briefs",
   description:
-    "Connect your Meta ad accounts and get actionable creative performance insights",
+    "Connect your Meta ad account and get a personalized, AI-powered performance brief every Monday. Built for ecommerce founders.",
 };
 
 export default function RootLayout({

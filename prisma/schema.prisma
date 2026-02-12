@@ -6,6 +6,8 @@ datasource db {
   provider = "postgresql"
 }
 
+// ─── Auth Models (keep) ───────────────────────────────
+
 model User {
   id             String    @id @default(cuid())
   name           String?
@@ -16,9 +18,12 @@ model User {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  accounts Account[]
-  sessions Session[]
-  brands   Brand[]
+  accounts     Account[]
+  sessions     Session[]
+  brandProfile BrandProfile?
+  adAccounts   AdAccount[]
+  metaAds      MetaAd[]
+  weeklyBriefs WeeklyBrief[]
 }
 
 model Account {
@@ -57,140 +62,151 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-model Brand {
-  id        String   @id @default(cuid())
-  name      String
-  logoUrl   String?
-  website   String?
-  userId    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// ─── Brand Profile (onboarding questionnaire) ─────────
 
-  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  adAccounts AdAccount[]
+model BrandProfile {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  brandName             String
+  websiteUrl            String?
+  industry              String?
+  industryOther         String?
+  monthlyRevenueRange   String?
+  businessAge           String?
+  targetCustomer        String?
+  averageOrderValue     Float?
+  acquisitionFocus      String?
+  uniqueDifferentiator  String?
+  monthlyAdSpendRange   String?
+  activeAdPlatforms     String[] @default([])
+  usesCreatorContent    String?
+  usesPartnershipAds    String?
+  biggestChallenges     String[] @default([])
+  challengesOther       String?
+  competitor1           String?
+  competitor2           String?
+  competitor3           String?
+  briefValuePreferences String[] @default([])
+  additionalNotes       String?
+  onboardingCompleted   Boolean  @default(false)
+  onboardingStep        Int      @default(1)
+  briefsPaused          Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Meta Ad Account Connection ───────────────────────
+
+model AdAccount {
+  id                   String          @id @default(cuid())
+  userId               String
+  metaAccountId        String          @unique
+  metaAccountName      String?
+  encryptedAccessToken String
+  tokenExpiresAt       DateTime?
+  tokenRefreshToken    String?
+  status               AdAccountStatus @default(ACTIVE)
+  lastSyncAt           DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  syncLogs SyncLog[]
 
   @@index([userId])
 }
 
-model AdAccount {
+// ─── Synced Meta Ad Data ──────────────────────────────
+
+model MetaAd {
   id                    String   @id @default(cuid())
-  brandId               String
-  metaAccountId         String   @unique
-  metaAccountName       String?
-  encryptedAccessToken  String
-  tokenExpiresAt        DateTime?
-  tokenRefreshToken     String?
-  status                AdAccountStatus @default(ACTIVE)
-  lastSyncAt            DateTime?
+  userId                String
+  adAccountId           String
+  metaCampaignId        String?
+  campaignName          String?
+  metaAdSetId           String?
+  adSetName             String?
+  metaAdId              String
+  adName                String?
+  status                String?
+  creativeType          String?
+  creativeThumbnailUrl  String?
+  primaryText           String?
+  headline              String?
+  callToAction          String?
+  isPartnershipAd       Boolean  @default(false)
+  creatorPageId         String?
+  creatorName           String?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
-  brand      Brand       @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  campaigns  Campaign[]
-  syncLogs   SyncLog[]
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  performance MetaAdPerformance[]
 
-  @@index([brandId])
+  @@unique([userId, metaAdId])
+  @@index([userId])
+  @@index([isPartnershipAd])
 }
 
-model Campaign {
-  id             String   @id @default(cuid())
-  adAccountId    String
-  metaCampaignId String   @unique
-  name           String
-  status         String?
-  objective      String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+model MetaAdPerformance {
+  id              String   @id @default(cuid())
+  metaAdId        String
+  date            DateTime
+  spend           Float    @default(0)
+  impressions     Int      @default(0)
+  reach           Int      @default(0)
+  clicks          Int      @default(0)
+  cpc             Float?
+  cpm             Float?
+  ctr             Float?
+  conversions     Int      @default(0)
+  conversionValue Float    @default(0)
+  cpa             Float?
+  roas            Float?
+  frequency       Float?
+  videoViews      Int?
+  video3sViews    Int?
+  videoThruplay   Int?
+  hookRate        Float?
+  holdRate        Float?
+  createdAt       DateTime @default(now())
 
-  adAccount AdAccount @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
-  adSets    AdSet[]
+  metaAd MetaAd @relation(fields: [metaAdId], references: [id], onDelete: Cascade)
 
-  @@index([adAccountId])
-}
-
-model AdSet {
-  id          String   @id @default(cuid())
-  campaignId  String
-  metaAdSetId String   @unique
-  name        String
-  status      String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  ads      Ad[]
-
-  @@index([campaignId])
-}
-
-model Ad {
-  id       String @id @default(cuid())
-  adSetId  String
-  metaAdId String @unique
-  name     String
-  status   String?
-
-  creativeId String?
-  creative   AdCreative? @relation(fields: [creativeId], references: [id])
-
-  metrics AdMetric[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  adSet AdSet @relation(fields: [adSetId], references: [id], onDelete: Cascade)
-
-  @@index([adSetId])
-  @@index([creativeId])
-}
-
-model AdCreative {
-  id              String        @id @default(cuid())
-  metaCreativeId  String        @unique
-  name            String?
-  title           String?
-  body            String?
-  callToAction    String?
-  imageUrl        String?
-  videoUrl        String?
-  thumbnailUrl    String?
-  format          CreativeFormat @default(STATIC)
-  linkUrl         String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  ads Ad[]
-}
-
-model AdMetric {
-  id           String   @id @default(cuid())
-  adId         String
-  date         DateTime
-  spend        Float    @default(0)
-  impressions  Int      @default(0)
-  clicks       Int      @default(0)
-  ctr          Float    @default(0)
-  cpm          Float    @default(0)
-  cpa          Float?
-  roas         Float?
-  conversions  Int      @default(0)
-  reach        Int      @default(0)
-  frequency    Float    @default(0)
-
-  // Breakdown fields (default "all" for aggregate rows)
-  ageRange     String   @default("all")
-  gender       String   @default("all")
-  placement    String   @default("all")
-  platform     String   @default("all")
-
-  createdAt    DateTime @default(now())
-
-  ad Ad @relation(fields: [adId], references: [id], onDelete: Cascade)
-
-  @@unique([adId, date, ageRange, gender, placement, platform])
-  @@index([adId, date])
+  @@unique([metaAdId, date])
   @@index([date])
+  @@index([metaAdId])
 }
+
+// ─── Weekly Briefs ────────────────────────────────────
+
+model WeeklyBrief {
+  id              String    @id @default(cuid())
+  userId          String
+  briefDate       DateTime
+  weekStart       DateTime
+  weekEnd         DateTime
+  subjectLine     String?
+  bottomLine      String?
+  briefMarkdown   String?
+  briefHtml       String?
+  briefStructured Json?
+  analysisData    Json?
+  shareToken      String    @unique @default(cuid())
+  emailSent       Boolean   @default(false)
+  emailSentAt     DateTime?
+  createdAt       DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([briefDate])
+  @@index([shareToken])
+}
+
+// ─── Sync Logging ─────────────────────────────────────
 
 model SyncLog {
   id          String     @id @default(cuid())
@@ -205,18 +221,14 @@ model SyncLog {
   @@index([adAccountId])
 }
 
+// ─── Enums ────────────────────────────────────────────
+
 enum AdAccountStatus {
   ACTIVE
   PAUSED
   DISCONNECTED
   TOKEN_EXPIRED
   PENDING_SELECTION
-}
-
-enum CreativeFormat {
-  STATIC
-  VIDEO
-  CAROUSEL
 }
 
 enum SyncStatus {
