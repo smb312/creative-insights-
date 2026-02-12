@@ -3,7 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/session";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResendClient() {
+  return new Resend(process.env.RESEND_API_KEY);
+}
 
 function buildEmailHtml(
   briefHtml: string,
@@ -165,7 +167,7 @@ export async function POST(request: NextRequest) {
     const fromEmail =
       process.env.RESEND_FROM_EMAIL || "briefs@creativeinsights.ai";
 
-    const { error: sendError } = await resend.emails.send({
+    const { error: sendError } = await getResendClient().emails.send({
       from: fromEmail,
       to: brief.user.email,
       subject: brief.subjectLine || `${brandName} Weekly Brief`,
