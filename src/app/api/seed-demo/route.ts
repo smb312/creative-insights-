@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/session";
 import { seedDemoData } from "@/lib/seed-demo-data";
 
+export const maxDuration = 300; // Allow up to 5 minutes for seed
+
 export async function POST() {
   try {
     const userId = await getCurrentUserId();
@@ -18,8 +20,14 @@ export async function POST() {
     });
   } catch (error) {
     console.error("Error seeding demo data:", error);
+    const message =
+      error instanceof Error ? error.message : "Unknown error";
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? (error as { code: string }).code
+        : undefined;
     return NextResponse.json(
-      { error: "Failed to seed demo data" },
+      { error: "Failed to seed demo data", message, code },
       { status: 500 }
     );
   }

@@ -770,48 +770,60 @@ export async function seedDemoData(userId: string) {
     const campaignId = `demo_camp_${adDef.campaignName.replace(/\s+/g, "_").toLowerCase().slice(0, 20)}`;
     const adSetId = `demo_adset_${adDef.adSetName.replace(/\s+/g, "_").toLowerCase().slice(0, 20)}_${adCounter}`;
 
-    const createdAd = await prisma.metaAd.create({
-      data: {
-        userId,
-        adAccountId: adAccount.id,
-        metaCampaignId: campaignId,
-        campaignName: adDef.campaignName,
-        metaAdSetId: adSetId,
-        adSetName: adDef.adSetName,
-        metaAdId,
-        adName: adDef.adName,
-        status: "ACTIVE",
-        creativeType: adDef.creativeType,
-        primaryText: adDef.primaryText,
-        headline: adDef.headline,
-        callToAction: adDef.callToAction,
-        isPartnershipAd: adDef.isPartnershipAd,
-        creatorName: adDef.creatorName ?? null,
-        creatorPageId: adDef.creatorName
-          ? `creator_${adDef.creatorName.replace(/\s+/g, "_").toLowerCase()}`
-          : null,
-      },
+    const adData = {
+      userId,
+      adAccountId: adAccount.id,
+      metaCampaignId: campaignId,
+      campaignName: adDef.campaignName,
+      metaAdSetId: adSetId,
+      adSetName: adDef.adSetName,
+      metaAdId,
+      adName: adDef.adName,
+      status: "ACTIVE",
+      creativeType: adDef.creativeType,
+      primaryText: adDef.primaryText,
+      headline: adDef.headline,
+      callToAction: adDef.callToAction,
+      isPartnershipAd: adDef.isPartnershipAd,
+      creatorName: adDef.creatorName ?? null,
+      creatorPageId: adDef.creatorName
+        ? `creator_${adDef.creatorName.replace(/\s+/g, "_").toLowerCase()}`
+        : null,
+    };
+
+    // Use upsert (matches proven sync route pattern)
+    const createdAd = await prisma.metaAd.upsert({
+      where: { userId_metaAdId: { userId, metaAdId } },
+      create: adData,
+      update: adData,
     });
 
-    // Generate 30 days of performance
-    const perfRecords = [];
+    // Generate and insert 30 days of performance using individual upserts
+    // (matches the sync route pattern — createMany is untested with PrismaPg adapter)
     for (let day = 0; day < TOTAL_DAYS; day++) {
       const date = new Date(now);
       date.setDate(date.getDate() - (TOTAL_DAYS - 1 - day));
       date.setHours(0, 0, 0, 0);
 
       const perf = generateDailyPerformance(adDef, day, TOTAL_DAYS);
-      perfRecords.push({
-        metaAdId: createdAd.id,
-        date,
-        ...perf,
+
+      await prisma.metaAdPerformance.upsert({
+        where: {
+          metaAdId_date: {
+            metaAdId: createdAd.id,
+            date,
+          },
+        },
+        create: {
+          metaAdId: createdAd.id,
+          date,
+          ...perf,
+        },
+        update: {
+          ...perf,
+        },
       });
     }
-
-    // Batch insert performance data
-    await prisma.metaAdPerformance.createMany({
-      data: perfRecords,
-    });
   }
 
   return {
