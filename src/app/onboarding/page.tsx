@@ -328,6 +328,13 @@ function OnboardingContent() {
         body: JSON.stringify({ ...mapFormToProfile(data), onboardingCompleted: true }),
       });
       if (res.ok) {
+        // Trigger initial data sync in the background if a Meta account is connected
+        const hasActiveAccount = metaAccounts.some((a) => a.status === "active");
+        if (hasActiveAccount) {
+          fetch("/api/sync", { method: "POST" }).catch(() => {
+            // Sync runs in the background; errors are non-blocking
+          });
+        }
         setCompleted(true);
         setTimeout(() => router.push("/dashboard"), 3000);
       }
@@ -336,7 +343,7 @@ function OnboardingContent() {
     } finally {
       setSaving(false);
     }
-  }, [data, router]);
+  }, [data, router, metaAccounts]);
 
   /* ---- Fetch Meta ad accounts ---- */
   const fetchMetaAccounts = useCallback(async () => {

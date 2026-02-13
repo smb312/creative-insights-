@@ -11,6 +11,7 @@ import {
   RefreshCw,
   CheckCircle,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -153,6 +154,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState<"brief" | "link" | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const fetchLatestBrief = useCallback(async () => {
     try {
@@ -217,6 +220,29 @@ export default function DashboardPage() {
     }
   };
 
+  const handleSync = async () => {
+    try {
+      setSyncing(true);
+      setSyncResult(null);
+      const res = await fetch("/api/sync", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Sync failed");
+      }
+      setSyncResult({
+        success: true,
+        message: `Synced ${data.totalAdsProcessed} ads successfully.`,
+      });
+    } catch (err) {
+      setSyncResult({
+        success: false,
+        message: err instanceof Error ? err.message : "Sync failed. Please try again.",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const formatDateRange = (start: string, end: string) => {
     return `${format(new Date(start), "MMM d")} - ${format(new Date(end), "MMM d, yyyy")}`;
   };
@@ -250,15 +276,42 @@ export default function DashboardPage() {
               Monday. You can also generate one now to see how it works with your
               current ad data.
             </p>
-            <Button
-              variant="primary"
-              size="lg"
-              loading={generating}
-              onClick={handleGenerate}
-            >
-              <Sparkles className="mr-2 h-5 w-5" />
-              Generate My First Brief
-            </Button>
+            <div className="flex flex-col items-center gap-3">
+              <Button
+                variant="primary"
+                size="lg"
+                loading={generating}
+                onClick={handleGenerate}
+              >
+                <Sparkles className="mr-2 h-5 w-5" />
+                Generate My First Brief
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={syncing}
+                onClick={handleSync}
+              >
+                {syncing ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    Syncing Ad Data...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="mr-1.5 h-4 w-4" />
+                    Sync Now
+                  </>
+                )}
+              </Button>
+              {syncResult && (
+                <p
+                  className={`text-sm ${syncResult.success ? "text-green-600" : "text-red-600"}`}
+                >
+                  {syncResult.message}
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -282,6 +335,24 @@ export default function DashboardPage() {
           <Button
             variant="outline"
             size="sm"
+            disabled={syncing}
+            onClick={handleSync}
+          >
+            {syncing ? (
+              <>
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                Syncing...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-1.5 h-4 w-4" />
+                Sync Now
+              </>
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             loading={generating}
             onClick={handleGenerate}
           >
@@ -290,6 +361,19 @@ export default function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      {/* Sync result banner */}
+      {syncResult && (
+        <div
+          className={`mb-4 rounded-lg px-4 py-3 text-sm ${
+            syncResult.success
+              ? "bg-green-50 text-green-700 border border-green-200"
+              : "bg-red-50 text-red-700 border border-red-200"
+          }`}
+        >
+          {syncResult.message}
+        </div>
+      )}
 
       {/* Brief content */}
       <Card>
