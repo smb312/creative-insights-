@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Copy,
   CheckCircle,
+  Database,
 } from "lucide-react";
 import { format, startOfMonth, subMonths, addMonths } from "date-fns";
 
@@ -78,6 +79,10 @@ export default function SettingsPage() {
   const [savingTargets, setSavingTargets] = useState(false);
   const [targetSaved, setTargetSaved] = useState(false);
   const [copyingPrev, setCopyingPrev] = useState(false);
+
+  // Demo data state
+  const [seedingDemo, setSeedingDemo] = useState(false);
+  const [seedResult, setSeedResult] = useState<string | null>(null);
 
   const fetchSettings = useCallback(async () => {
     try {
@@ -237,6 +242,32 @@ export default function SettingsPage() {
       alert(
         "Account deletion has been requested. This feature is coming soon."
       );
+    }
+  };
+
+  const handleSeedDemo = async () => {
+    const confirmed = window.confirm(
+      "This will replace all your existing ad data with demo data for a fictional skincare brand (Luminary Skin Co). Continue?"
+    );
+    if (!confirmed) return;
+
+    setSeedingDemo(true);
+    setSeedResult(null);
+    try {
+      const res = await fetch("/api/seed-demo", { method: "POST" });
+      if (!res.ok) throw new Error("Seed request failed");
+      const data = await res.json();
+      setSeedResult(
+        `Loaded ${data.adsCreated} ads with ${data.totalPerformanceRows} daily performance rows.`
+      );
+      // Refresh settings to pick up the new ad account
+      fetchSettings();
+      fetchTargets(targetMonth);
+    } catch (err) {
+      console.error("Error seeding demo data:", err);
+      setSeedResult("Failed to load demo data. Please try again.");
+    } finally {
+      setSeedingDemo(false);
     }
   };
 
@@ -553,6 +584,41 @@ export default function SettingsPage() {
                   </>
                 )}
               </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Demo Data */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Database className="h-5 w-5 text-gray-600" />
+              <CardTitle>Demo Data</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600">
+                Load realistic demo data for a fictional DTC skincare brand
+                (Luminary Skin Co) with 45 ads, 30 days of performance data,
+                and monthly targets. This will replace any existing ad data.
+              </p>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={seedingDemo}
+                  onClick={handleSeedDemo}
+                >
+                  <Database className="mr-1.5 h-4 w-4" />
+                  {seedingDemo ? "Loading Demo Data..." : "Load Demo Data"}
+                </Button>
+              </div>
+              {seedResult && (
+                <p className={`text-xs ${seedResult.startsWith("Failed") ? "text-red-600" : "text-green-600"}`}>
+                  {seedResult}
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
