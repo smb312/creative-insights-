@@ -448,39 +448,43 @@ export async function POST(request: NextRequest) {
     };
 
     // 10. Pacing data (if monthly targets exist)
-    const monthStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
-    const monthlyTarget = await prisma.monthlyTarget.findUnique({
-      where: { userId_month: { userId, month: monthStart } },
-    });
-
     let pacingPayload = "";
-    if (monthlyTarget) {
-      // Get MTD performance across all user ads
-      const mtdPerf = await prisma.metaAdPerformance.findMany({
-        where: {
-          metaAdId: { in: adIds },
-          date: { gte: monthStart, lte: thisWeekEnd },
-        },
-        select: { spend: true, conversions: true, conversionValue: true },
+    try {
+      const monthStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
+      const monthlyTarget = await prisma.monthlyTarget.findUnique({
+        where: { userId_month: { userId, month: monthStart } },
       });
 
-      const mtdActuals: MtdActuals = {
-        spend: mtdPerf.reduce((sum, r) => sum + r.spend, 0),
-        conversions: mtdPerf.reduce((sum, r) => sum + r.conversions, 0),
-        conversionValue: mtdPerf.reduce((sum, r) => sum + r.conversionValue, 0),
-      };
+      if (monthlyTarget) {
+        // Get MTD performance across all user ads
+        const mtdPerf = await prisma.metaAdPerformance.findMany({
+          where: {
+            metaAdId: { in: adIds },
+            date: { gte: monthStart, lte: thisWeekEnd },
+          },
+          select: { spend: true, conversions: true, conversionValue: true },
+        });
 
-      const targets: MonthlyTargets = {
-        revenueGoal: monthlyTarget.revenueGoal,
-        adSpendBudget: monthlyTarget.adSpendBudget,
-        targetRoas: monthlyTarget.targetRoas,
-        targetCpa: monthlyTarget.targetCpa,
-        targetOrders: monthlyTarget.targetOrders,
-        targetNewCac: monthlyTarget.targetNewCac,
-      };
+        const mtdActuals: MtdActuals = {
+          spend: mtdPerf.reduce((sum, r) => sum + r.spend, 0),
+          conversions: mtdPerf.reduce((sum, r) => sum + r.conversions, 0),
+          conversionValue: mtdPerf.reduce((sum, r) => sum + r.conversionValue, 0),
+        };
 
-      const pacing = calculatePacing(targets, mtdActuals, now);
-      pacingPayload = "\n" + formatPacingForBrief(pacing, targets);
+        const targets: MonthlyTargets = {
+          revenueGoal: monthlyTarget.revenueGoal,
+          adSpendBudget: monthlyTarget.adSpendBudget,
+          targetRoas: monthlyTarget.targetRoas,
+          targetCpa: monthlyTarget.targetCpa,
+          targetOrders: monthlyTarget.targetOrders,
+          targetNewCac: monthlyTarget.targetNewCac,
+        };
+
+        const pacing = calculatePacing(targets, mtdActuals, now);
+        pacingPayload = "\n" + formatPacingForBrief(pacing, targets);
+      }
+    } catch (pacingError) {
+      console.warn("Skipping pacing data — MonthlyTarget table may not exist yet:", pacingError);
     }
 
     // 11. Build the full data payload string
