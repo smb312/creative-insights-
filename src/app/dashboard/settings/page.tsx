@@ -15,8 +15,13 @@ import {
   Trash2,
   ExternalLink,
   AlertTriangle,
+  Target,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  CheckCircle,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, startOfMonth, subMonths, addMonths } from "date-fns";
 
 interface AdAccountInfo {
   name: string | null;
@@ -36,6 +41,28 @@ interface SettingsData {
   profile: ProfileInfo | null;
 }
 
+interface TargetFields {
+  revenueGoal: string;
+  adSpendBudget: string;
+  targetRoas: string;
+  targetCpa: string;
+  targetOrders: string;
+  targetNewCac: string;
+}
+
+const EMPTY_TARGETS: TargetFields = {
+  revenueGoal: "",
+  adSpendBudget: "",
+  targetRoas: "",
+  targetCpa: "",
+  targetOrders: "",
+  targetNewCac: "",
+};
+
+function formatMonthKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const { data: session } = useSession();
@@ -43,6 +70,14 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [reconnecting, setReconnecting] = useState(false);
   const [togglingPause, setTogglingPause] = useState(false);
+
+  // Monthly targets state
+  const [targetMonth, setTargetMonth] = useState(() => startOfMonth(new Date()));
+  const [targets, setTargets] = useState<TargetFields>(EMPTY_TARGETS);
+  const [loadingTargets, setLoadingTargets] = useState(false);
+  const [savingTargets, setSavingTargets] = useState(false);
+  const [targetSaved, setTargetSaved] = useState(false);
+  const [copyingPrev, setCopyingPrev] = useState(false);
 
   const fetchSettings = useCallback(async () => {
     try {
@@ -58,9 +93,95 @@ export default function SettingsPage() {
     }
   }, []);
 
+  const fetchTargets = useCallback(async (month: Date) => {
+    setLoadingTargets(true);
+    setTargetSaved(false);
+    try {
+      const res = await fetch(`/api/targets?month=${formatMonthKey(month)}`);
+      if (res.ok) {
+        const { target } = await res.json();
+        if (target) {
+          setTargets({
+            revenueGoal: target.revenueGoal?.toString() ?? "",
+            adSpendBudget: target.adSpendBudget?.toString() ?? "",
+            targetRoas: target.targetRoas?.toString() ?? "",
+            targetCpa: target.targetCpa?.toString() ?? "",
+            targetOrders: target.targetOrders?.toString() ?? "",
+            targetNewCac: target.targetNewCac?.toString() ?? "",
+          });
+        } else {
+          setTargets(EMPTY_TARGETS);
+        }
+      }
+    } catch {
+      // handle silently
+    } finally {
+      setLoadingTargets(false);
+    }
+  }, []);
+
+  const saveTargets = async () => {
+    setSavingTargets(true);
+    setTargetSaved(false);
+    try {
+      const res = await fetch("/api/targets", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          month: formatMonthKey(targetMonth),
+          revenueGoal: targets.revenueGoal ? parseFloat(targets.revenueGoal) : null,
+          adSpendBudget: targets.adSpendBudget ? parseFloat(targets.adSpendBudget) : null,
+          targetRoas: targets.targetRoas ? parseFloat(targets.targetRoas) : null,
+          targetCpa: targets.targetCpa ? parseFloat(targets.targetCpa) : null,
+          targetOrders: targets.targetOrders ? parseInt(targets.targetOrders) : null,
+          targetNewCac: targets.targetNewCac ? parseFloat(targets.targetNewCac) : null,
+        }),
+      });
+      if (res.ok) {
+        setTargetSaved(true);
+        setTimeout(() => setTargetSaved(false), 3000);
+      }
+    } catch {
+      // handle silently
+    } finally {
+      setSavingTargets(false);
+    }
+  };
+
+  const copyFromLastMonth = async () => {
+    setCopyingPrev(true);
+    try {
+      const prevMonth = subMonths(targetMonth, 1);
+      const res = await fetch(`/api/targets?month=${formatMonthKey(prevMonth)}`);
+      if (res.ok) {
+        const { target } = await res.json();
+        if (target) {
+          setTargets({
+            revenueGoal: target.revenueGoal?.toString() ?? "",
+            adSpendBudget: target.adSpendBudget?.toString() ?? "",
+            targetRoas: target.targetRoas?.toString() ?? "",
+            targetCpa: target.targetCpa?.toString() ?? "",
+            targetOrders: target.targetOrders?.toString() ?? "",
+            targetNewCac: target.targetNewCac?.toString() ?? "",
+          });
+        } else {
+          alert("No targets found for the previous month.");
+        }
+      }
+    } catch {
+      // handle silently
+    } finally {
+      setCopyingPrev(false);
+    }
+  };
+
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+
+  useEffect(() => {
+    fetchTargets(targetMonth);
+  }, [targetMonth, fetchTargets]);
 
   const handleReconnectMeta = async () => {
     try {
@@ -202,6 +323,186 @@ export default function SettingsPage() {
                   <Link2 className="mr-1.5 h-4 w-4" />
                   Connect Meta
                 </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Monthly Targets */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-gray-600" />
+              <CardTitle>Monthly Targets</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {/* Month selector */}
+            <div className="flex items-center justify-between mb-6">
+              <button
+                onClick={() => setTargetMonth((m) => subMonths(m, 1))}
+                className="p-1 rounded hover:bg-gray-100 text-gray-500"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <span className="text-sm font-semibold text-gray-900">
+                {format(targetMonth, "MMMM yyyy")}
+              </span>
+              <button
+                onClick={() => setTargetMonth((m) => addMonths(m, 1))}
+                className="p-1 rounded hover:bg-gray-100 text-gray-500"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+
+            {loadingTargets ? (
+              <div className="flex justify-center py-4">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="w-full">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Monthly revenue goal ($)
+                  </label>
+                  <p className="text-xs text-gray-400 mb-1">
+                    How much total revenue do you want to generate this month?
+                  </p>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">$</span>
+                    <input
+                      type="number"
+                      className="w-full rounded-lg border border-gray-300 pl-7 pr-3 py-2 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      placeholder="150000"
+                      value={targets.revenueGoal}
+                      onChange={(e) => setTargets((t) => ({ ...t, revenueGoal: e.target.value }))}
+                      min="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="w-full">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Monthly ad spend budget ($)
+                  </label>
+                  <p className="text-xs text-gray-400 mb-1">
+                    How much are you planning to spend on ads this month?
+                  </p>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">$</span>
+                    <input
+                      type="number"
+                      className="w-full rounded-lg border border-gray-300 pl-7 pr-3 py-2 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      placeholder="30000"
+                      value={targets.adSpendBudget}
+                      onChange={(e) => setTargets((t) => ({ ...t, adSpendBudget: e.target.value }))}
+                      min="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="w-full">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Target ROAS
+                  </label>
+                  <p className="text-xs text-gray-400 mb-1">
+                    What return on ad spend are you targeting? (e.g. 3.0)
+                  </p>
+                  <input
+                    type="number"
+                    step="0.1"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    placeholder="3.0"
+                    value={targets.targetRoas}
+                    onChange={(e) => setTargets((t) => ({ ...t, targetRoas: e.target.value }))}
+                    min="0"
+                  />
+                </div>
+
+                <div className="w-full">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Target CPA ($)
+                  </label>
+                  <p className="text-xs text-gray-400 mb-1">
+                    What's your target cost per acquisition?
+                  </p>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">$</span>
+                    <input
+                      type="number"
+                      className="w-full rounded-lg border border-gray-300 pl-7 pr-3 py-2 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      placeholder="25"
+                      value={targets.targetCpa}
+                      onChange={(e) => setTargets((t) => ({ ...t, targetCpa: e.target.value }))}
+                      min="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="w-full">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Target number of orders
+                  </label>
+                  <p className="text-xs text-gray-400 mb-1">
+                    How many orders are you aiming for this month?
+                  </p>
+                  <input
+                    type="number"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    placeholder="600"
+                    value={targets.targetOrders}
+                    onChange={(e) => setTargets((t) => ({ ...t, targetOrders: e.target.value }))}
+                    min="0"
+                  />
+                </div>
+
+                <div className="w-full">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Target new customer acquisition cost ($)
+                  </label>
+                  <p className="text-xs text-gray-400 mb-1">
+                    Optional — your target CAC for new customers.
+                  </p>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">$</span>
+                    <input
+                      type="number"
+                      className="w-full rounded-lg border border-gray-300 pl-7 pr-3 py-2 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      placeholder="35"
+                      value={targets.targetNewCac}
+                      onChange={(e) => setTargets((t) => ({ ...t, targetNewCac: e.target.value }))}
+                      min="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 pt-2">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    loading={savingTargets}
+                    onClick={saveTargets}
+                  >
+                    {targetSaved ? (
+                      <>
+                        <CheckCircle className="mr-1.5 h-4 w-4" />
+                        Saved
+                      </>
+                    ) : (
+                      "Save Targets"
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    loading={copyingPrev}
+                    onClick={copyFromLastMonth}
+                  >
+                    <Copy className="mr-1.5 h-4 w-4" />
+                    Copy from last month
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>

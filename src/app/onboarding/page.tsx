@@ -144,13 +144,14 @@ function mapFormToProfile(data: OnboardingData): Record<string, unknown> {
   };
 }
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 
 const STEP_LABELS = [
   "About Your Brand",
   "Your Customers",
   "Your Marketing",
   "Competitors & Goals",
+  "Monthly Targets",
   "Connect Meta",
 ];
 
@@ -268,6 +269,16 @@ function OnboardingContent() {
   const [loading, setLoading] = useState(true);
   const [completed, setCompleted] = useState(false);
 
+  // Monthly targets (Step 5)
+  const [monthlyTargets, setMonthlyTargets] = useState({
+    revenueGoal: "",
+    adSpendBudget: "",
+    targetRoas: "",
+    targetCpa: "",
+    targetOrders: "",
+    targetNewCac: "",
+  });
+
   // Meta accounts
   const [metaAccounts, setMetaAccounts] = useState<MetaAdAccount[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
@@ -294,10 +305,10 @@ function OnboardingContent() {
     loadData();
   }, []);
 
-  /* ---- If returning from Meta OAuth, jump to step 5 ---- */
+  /* ---- If returning from Meta OAuth, jump to step 6 ---- */
   useEffect(() => {
     if (searchParams.get("selectAccount") === "true") {
-      setStep(5);
+      setStep(6);
     }
   }, [searchParams]);
 
@@ -361,9 +372,9 @@ function OnboardingContent() {
     }
   }, []);
 
-  /* ---- Load accounts when step 5 is reached ---- */
+  /* ---- Load accounts when step 6 is reached ---- */
   useEffect(() => {
-    if (step === 5) {
+    if (step === 6) {
       fetchMetaAccounts();
     }
   }, [step, fetchMetaAccounts]);
@@ -407,8 +418,40 @@ function OnboardingContent() {
     }
   };
 
+  /* ---- Save monthly targets ---- */
+  const saveMonthlyTargets = useCallback(async () => {
+    const hasAnyValue = Object.values(monthlyTargets).some((v) => v !== "");
+    if (!hasAnyValue) return; // nothing to save
+
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+    try {
+      await fetch("/api/targets", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          month,
+          revenueGoal: monthlyTargets.revenueGoal ? parseFloat(monthlyTargets.revenueGoal) : null,
+          adSpendBudget: monthlyTargets.adSpendBudget ? parseFloat(monthlyTargets.adSpendBudget) : null,
+          targetRoas: monthlyTargets.targetRoas ? parseFloat(monthlyTargets.targetRoas) : null,
+          targetCpa: monthlyTargets.targetCpa ? parseFloat(monthlyTargets.targetCpa) : null,
+          targetOrders: monthlyTargets.targetOrders ? parseInt(monthlyTargets.targetOrders) : null,
+          targetNewCac: monthlyTargets.targetNewCac ? parseFloat(monthlyTargets.targetNewCac) : null,
+        }),
+      });
+    } catch {
+      // handle silently
+    }
+  }, [monthlyTargets]);
+
   /* ---- Navigation ---- */
   const handleNext = async () => {
+    // Save targets if leaving step 5
+    if (step === 5) {
+      await saveMonthlyTargets();
+    }
+
     const ok = await saveStep();
     if (!ok) return;
 
@@ -598,7 +641,13 @@ function OnboardingContent() {
               />
             )}
             {step === 5 && (
-              <Step5
+              <Step5Targets
+                targets={monthlyTargets}
+                setTargets={setMonthlyTargets}
+              />
+            )}
+            {step === 6 && (
+              <Step6Meta
                 activeAccount={activeAccount ?? null}
                 pendingAccounts={pendingAccounts}
                 loadingAccounts={loadingAccounts}
@@ -621,24 +670,37 @@ function OnboardingContent() {
               </Button>
             )}
           </div>
-          <Button
-            variant="primary"
-            onClick={handleNext}
-            loading={saving}
-            disabled={!canProceed()}
-          >
-            {step === TOTAL_STEPS ? (
-              <>
-                Complete Setup
-                <Sparkles className="ml-2 h-4 w-4" />
-              </>
-            ) : (
-              <>
-                Next
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </>
+          <div className="flex items-center gap-3">
+            {step === 5 && (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setStep(6);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+              >
+                Skip — I&apos;ll add these later
+              </Button>
             )}
-          </Button>
+            <Button
+              variant="primary"
+              onClick={handleNext}
+              loading={saving}
+              disabled={!canProceed()}
+            >
+              {step === TOTAL_STEPS ? (
+                <>
+                  Complete Setup
+                  <Sparkles className="ml-2 h-4 w-4" />
+                </>
+              ) : (
+                <>
+                  Next
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
@@ -989,10 +1051,159 @@ function Step4({
 }
 
 /* ------------------------------------------------------------------ */
-/*  Step 5 — Connect Meta                                              */
+/*  Step 5 — Monthly Targets (optional)                                */
 /* ------------------------------------------------------------------ */
 
-function Step5({
+function Step5Targets({
+  targets,
+  setTargets,
+}: {
+  targets: {
+    revenueGoal: string;
+    adSpendBudget: string;
+    targetRoas: string;
+    targetCpa: string;
+    targetOrders: string;
+    targetNewCac: string;
+  };
+  setTargets: React.Dispatch<React.SetStateAction<typeof targets>>;
+}) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-1">
+          Monthly Targets
+        </h2>
+        <p className="text-sm text-gray-500">
+          Set your goals for this month so your weekly brief includes pacing
+          insights. All fields are optional — you can always update them later in
+          Settings.
+        </p>
+      </div>
+
+      <div className="w-full">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Monthly revenue goal ($)
+        </label>
+        <p className="text-xs text-gray-400 mb-1">
+          How much total revenue do you want to generate this month?
+        </p>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">$</span>
+          <input
+            type="number"
+            className="w-full rounded-lg border border-gray-300 pl-7 pr-3 py-2 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            placeholder="150000"
+            value={targets.revenueGoal}
+            onChange={(e) => setTargets((t) => ({ ...t, revenueGoal: e.target.value }))}
+            min="0"
+          />
+        </div>
+      </div>
+
+      <div className="w-full">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Monthly ad spend budget ($)
+        </label>
+        <p className="text-xs text-gray-400 mb-1">
+          How much are you planning to spend on ads this month?
+        </p>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">$</span>
+          <input
+            type="number"
+            className="w-full rounded-lg border border-gray-300 pl-7 pr-3 py-2 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            placeholder="30000"
+            value={targets.adSpendBudget}
+            onChange={(e) => setTargets((t) => ({ ...t, adSpendBudget: e.target.value }))}
+            min="0"
+          />
+        </div>
+      </div>
+
+      <div className="w-full">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Target ROAS
+        </label>
+        <p className="text-xs text-gray-400 mb-1">
+          What return on ad spend are you targeting? (e.g. 3.0)
+        </p>
+        <input
+          type="number"
+          step="0.1"
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          placeholder="3.0"
+          value={targets.targetRoas}
+          onChange={(e) => setTargets((t) => ({ ...t, targetRoas: e.target.value }))}
+          min="0"
+        />
+      </div>
+
+      <div className="w-full">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Target CPA ($)
+        </label>
+        <p className="text-xs text-gray-400 mb-1">
+          What&apos;s your target cost per acquisition?
+        </p>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">$</span>
+          <input
+            type="number"
+            className="w-full rounded-lg border border-gray-300 pl-7 pr-3 py-2 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            placeholder="25"
+            value={targets.targetCpa}
+            onChange={(e) => setTargets((t) => ({ ...t, targetCpa: e.target.value }))}
+            min="0"
+          />
+        </div>
+      </div>
+
+      <div className="w-full">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Target number of orders
+        </label>
+        <p className="text-xs text-gray-400 mb-1">
+          How many orders are you aiming for this month?
+        </p>
+        <input
+          type="number"
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          placeholder="600"
+          value={targets.targetOrders}
+          onChange={(e) => setTargets((t) => ({ ...t, targetOrders: e.target.value }))}
+          min="0"
+        />
+      </div>
+
+      <div className="w-full">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Target new customer acquisition cost ($)
+        </label>
+        <p className="text-xs text-gray-400 mb-1">
+          Optional — your target CAC for new customers.
+        </p>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">$</span>
+          <input
+            type="number"
+            className="w-full rounded-lg border border-gray-300 pl-7 pr-3 py-2 text-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            placeholder="35"
+            value={targets.targetNewCac}
+            onChange={(e) => setTargets((t) => ({ ...t, targetNewCac: e.target.value }))}
+            min="0"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Step 6 — Connect Meta                                              */
+/* ------------------------------------------------------------------ */
+
+function Step6Meta({
   activeAccount,
   pendingAccounts,
   loadingAccounts,

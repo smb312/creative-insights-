@@ -12,8 +12,12 @@ import {
   CheckCircle,
   Sparkles,
   Loader2,
+  Target,
+  Settings,
 } from "lucide-react";
 import { format } from "date-fns";
+import { useRouter } from "next/navigation";
+import type { PacingResult } from "@/lib/pacing";
 
 interface Brief {
   id: string;
@@ -150,12 +154,26 @@ function inlineFormat(text: string): string {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [brief, setBrief] = useState<Brief | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState<"brief" | "link" | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [pacing, setPacing] = useState<PacingResult | null>(null);
+
+  const fetchPacing = useCallback(async () => {
+    try {
+      const res = await fetch("/api/pacing");
+      if (res.ok) {
+        const data = await res.json();
+        setPacing(data.pacing ?? null);
+      }
+    } catch {
+      // non-critical
+    }
+  }, []);
 
   const fetchLatestBrief = useCallback(async () => {
     try {
@@ -173,7 +191,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchLatestBrief();
-  }, [fetchLatestBrief]);
+    fetchPacing();
+  }, [fetchLatestBrief, fetchPacing]);
 
   const handleGenerate = async () => {
     try {
@@ -375,6 +394,9 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Pacing card */}
+      <PacingCard pacing={pacing} onGoToSettings={() => router.push("/dashboard/settings")} />
+
       {/* Brief content */}
       <Card>
         <CardHeader>
@@ -439,5 +461,244 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Pacing Card                                                        */
+/* ------------------------------------------------------------------ */
+
+function ProgressBar({
+  value,
+  expected,
+  color,
+}: {
+  value: number; // 0-1
+  expected: number; // 0-1 (where the pace marker should be)
+  color: "green" | "yellow" | "red";
+}) {
+  const barColor = {
+    green: "bg-green-500",
+    yellow: "bg-yellow-500",
+    red: "bg-red-500",
+  }[color];
+
+  const clamped = Math.min(Math.max(value, 0), 1);
+  const clampedExpected = Math.min(Math.max(expected, 0), 1);
+
+  return (
+    <div className="relative h-2.5 w-full rounded-full bg-gray-100">
+      <div
+        className={`h-2.5 rounded-full ${barColor} transition-all duration-300`}
+        style={{ width: `${clamped * 100}%` }}
+      />
+      {/* Pace marker */}
+      <div
+        className="absolute top-0 h-2.5 w-0.5 bg-gray-400"
+        style={{ left: `${clampedExpected * 100}%` }}
+        title={`Expected: ${(clampedExpected * 100).toFixed(0)}%`}
+      />
+    </div>
+  );
+}
+
+function getBarColor(actual: number, expected: number): "green" | "yellow" | "red" {
+  const ratio = expected > 0 ? actual / expected : 1;
+  if (ratio >= 0.9) return "green";
+  if (ratio >= 0.8) return "yellow";
+  return "red";
+}
+
+function getSpendBarColor(actual: number, expected: number): "green" | "yellow" | "red" {
+  const ratio = expected > 0 ? actual / expected : 1;
+  // For spend, being over budget is bad
+  if (ratio > 1.1) return "red";
+  if (ratio > 1.0) return "yellow";
+  return "green";
+}
+
+const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  ahead: { label: "AHEAD", color: "text-green-700 bg-green-100" },
+  on_track: { label: "ON TRACK", color: "text-green-700 bg-green-100" },
+  at_risk: { label: "AT RISK", color: "text-yellow-700 bg-yellow-100" },
+  behind: { label: "BEHIND", color: "text-red-700 bg-red-100" },
+};
+
+function PacingCard({
+  pacing,
+  onGoToSettings,
+}: {
+  pacing: PacingResult | null;
+  onGoToSettings: () => void;
+}) {
+  if (!pacing) {
+    return (
+      <Card className="mb-6">
+        <CardContent className="flex items-center justify-between py-6">
+          <div className="flex items-center gap-3">
+            <div className="rounded-full bg-gray-100 p-2">
+              <Target className="h-5 w-5 text-gray-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">
+                Set your monthly targets to see pacing
+              </p>
+              <p className="text-xs text-gray-500">
+                Track revenue, spend, and efficiency against your goals.
+              </p>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={onGoToSettings}>
+            <Settings className="mr-1.5 h-4 w-4" />
+            Go to Settings
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const statusInfo = STATUS_LABELS[pacing.overallStatus] ?? STATUS_LABELS.on_track;
+  const fmtCurrency = (n: number) =>
+    "$" + n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const fmtPct = (n: number) => (n * 100).toFixed(0) + "%";
+
+  return (
+    <Card className="mb-6">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Target className="h-5 w-5 text-gray-600" />
+            <CardTitle>{pacing.monthName} {new Date().getFullYear()} Pacing</CardTitle>
+          </div>
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusInfo.color}`}
+          >
+            {statusInfo.label}
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {/* Revenue */}
+          {pacing.revenuePacing && (
+            <div>
+              <div className="mb-1 flex items-center justify-between text-sm">
+                <span className="text-gray-600">Revenue</span>
+                <span className="font-medium text-gray-900">
+                  {fmtCurrency(pacing.revenuePacing.actual)} /{" "}
+                  {fmtCurrency(pacing.revenuePacing.goal)}{" "}
+                  <span className="text-gray-400 font-normal">
+                    {fmtPct(pacing.revenuePacing.percentAchieved)}
+                  </span>
+                </span>
+              </div>
+              <ProgressBar
+                value={pacing.revenuePacing.percentAchieved}
+                expected={pacing.percentMonthElapsed}
+                color={getBarColor(
+                  pacing.revenuePacing.percentAchieved,
+                  pacing.percentMonthElapsed
+                )}
+              />
+            </div>
+          )}
+
+          {/* Ad Spend */}
+          {pacing.spendPacing && (
+            <div>
+              <div className="mb-1 flex items-center justify-between text-sm">
+                <span className="text-gray-600">Ad Spend</span>
+                <span className="font-medium text-gray-900">
+                  {fmtCurrency(pacing.spendPacing.spent)} /{" "}
+                  {fmtCurrency(pacing.spendPacing.budget)}{" "}
+                  <span className="text-gray-400 font-normal">
+                    {fmtPct(pacing.spendPacing.percentSpent)}
+                  </span>
+                </span>
+              </div>
+              <ProgressBar
+                value={pacing.spendPacing.percentSpent}
+                expected={pacing.percentMonthElapsed}
+                color={getSpendBarColor(
+                  pacing.spendPacing.percentSpent,
+                  pacing.percentMonthElapsed
+                )}
+              />
+            </div>
+          )}
+
+          {/* Orders */}
+          {pacing.orderPacing && (
+            <div>
+              <div className="mb-1 flex items-center justify-between text-sm">
+                <span className="text-gray-600">Orders</span>
+                <span className="font-medium text-gray-900">
+                  {pacing.orderPacing.actual} / {pacing.orderPacing.goal}{" "}
+                  <span className="text-gray-400 font-normal">
+                    {fmtPct(pacing.orderPacing.percentAchieved)}
+                  </span>
+                </span>
+              </div>
+              <ProgressBar
+                value={pacing.orderPacing.percentAchieved}
+                expected={pacing.percentMonthElapsed}
+                color={getBarColor(
+                  pacing.orderPacing.percentAchieved,
+                  pacing.percentMonthElapsed
+                )}
+              />
+            </div>
+          )}
+
+          {/* ROAS */}
+          {pacing.efficiencyPacing.actualRoas != null &&
+            pacing.efficiencyPacing.targetRoas != null && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">ROAS</span>
+                <span className="font-medium text-gray-900">
+                  {pacing.efficiencyPacing.actualRoas.toFixed(1)}x{" "}
+                  <span className="text-gray-400 font-normal">
+                    (target: {pacing.efficiencyPacing.targetRoas}x)
+                  </span>
+                  {(pacing.efficiencyPacing.roasVsTarget ?? 0) >= 0 ? (
+                    <CheckCircle className="ml-1.5 inline h-4 w-4 text-green-500" />
+                  ) : (
+                    <span className="ml-1.5 text-xs text-red-500">
+                      {((pacing.efficiencyPacing.roasVsTarget ?? 0)).toFixed(2)}x
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
+
+          {/* CPA */}
+          {pacing.efficiencyPacing.actualCpa != null &&
+            pacing.efficiencyPacing.targetCpa != null && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">CPA</span>
+                <span className="font-medium text-gray-900">
+                  ${pacing.efficiencyPacing.actualCpa.toFixed(0)}{" "}
+                  <span className="text-gray-400 font-normal">
+                    (target: ${pacing.efficiencyPacing.targetCpa})
+                  </span>
+                  {(pacing.efficiencyPacing.cpaVsTarget ?? 0) >= 0 ? (
+                    <CheckCircle className="ml-1.5 inline h-4 w-4 text-green-500" />
+                  ) : (
+                    <span className="ml-1.5 text-xs text-red-500">
+                      +${Math.abs(pacing.efficiencyPacing.cpaVsTarget ?? 0).toFixed(0)}
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
+        </div>
+
+        {/* Footer */}
+        <div className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-400">
+          Day {pacing.daysElapsed} of {pacing.daysInMonth} &mdash;{" "}
+          {fmtPct(pacing.percentMonthElapsed)} of month elapsed
+        </div>
+      </CardContent>
+    </Card>
   );
 }

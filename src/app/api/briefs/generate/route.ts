@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/session";
 import Anthropic from "@anthropic-ai/sdk";
+import { calculatePacing, formatPacingForBrief } from "@/lib/pacing";
+import type { MonthlyTargets, MtdActuals } from "@/lib/pacing";
 
 export const maxDuration = 120; // Allow up to 2 minutes for generation
 
@@ -21,6 +23,17 @@ Rules:
 - Keep total length to 500-800 words
 - Be honest — if performance is bad, say so constructively
 
+If monthly pacing data is provided, include a "Monthly Pacing" section in the brief between "By The Numbers" and "What's Working". This section should:
+- Lead with the overall status (on track, at risk, behind, or ahead)
+- State the revenue goal and where they stand in plain language
+- If behind: calculate exactly what needs to happen to catch up (e.g., "You need to average $4,200/day for the remaining 12 days")
+- If ahead: acknowledge it and note what's driving the outperformance
+- Comment on spend pacing vs budget — are they spending too fast or too slow?
+- If ROAS or CPA is off target, flag it and connect it to the revenue impact
+- Keep this section to 3-5 sentences. Be specific with numbers.
+
+If no monthly pacing data is provided, skip the Monthly Pacing section entirely and add a note at the end: "Set your monthly targets in Settings to get pacing insights in your next brief."
+
 Output format — use these exact section headers:
 
 ## The Bottom Line
@@ -28,6 +41,9 @@ Output format — use these exact section headers:
 
 ## By The Numbers
 (Key metrics table: metric | this week | last week | change)
+
+## Monthly Pacing
+(Only if targets are set. 3-5 sentences on pacing status, projections, and what needs to happen.)
 
 ## What's Working
 (1-2 short paragraphs on top performers and why they're winning)
@@ -431,7 +447,43 @@ export async function POST(request: NextRequest) {
             : "stable",
     };
 
-    // 10. Build the full data payload string
+    // 10. Pacing data (if monthly targets exist)
+    const monthStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
+    const monthlyTarget = await prisma.monthlyTarget.findUnique({
+      where: { userId_month: { userId, month: monthStart } },
+    });
+
+    let pacingPayload = "";
+    if (monthlyTarget) {
+      // Get MTD performance across all user ads
+      const mtdPerf = await prisma.metaAdPerformance.findMany({
+        where: {
+          metaAdId: { in: adIds },
+          date: { gte: monthStart, lte: thisWeekEnd },
+        },
+        select: { spend: true, conversions: true, conversionValue: true },
+      });
+
+      const mtdActuals: MtdActuals = {
+        spend: mtdPerf.reduce((sum, r) => sum + r.spend, 0),
+        conversions: mtdPerf.reduce((sum, r) => sum + r.conversions, 0),
+        conversionValue: mtdPerf.reduce((sum, r) => sum + r.conversionValue, 0),
+      };
+
+      const targets: MonthlyTargets = {
+        revenueGoal: monthlyTarget.revenueGoal,
+        adSpendBudget: monthlyTarget.adSpendBudget,
+        targetRoas: monthlyTarget.targetRoas,
+        targetCpa: monthlyTarget.targetCpa,
+        targetOrders: monthlyTarget.targetOrders,
+        targetNewCac: monthlyTarget.targetNewCac,
+      };
+
+      const pacing = calculatePacing(targets, mtdActuals, now);
+      pacingPayload = "\n" + formatPacingForBrief(pacing, targets);
+    }
+
+    // 11. Build the full data payload string
     const dataPayload = `
 BRAND CONTEXT:
 Brand: ${brandProfile.brandName}
@@ -529,9 +581,9 @@ CPM trend: ${trends.cpm}
 30-day total spend: ${formatCurrency(thirtyDayMetrics.totalSpend)}
 30-day conversions: ${thirtyDayMetrics.totalConversions}
 30-day blended ROAS: ${thirtyDayMetrics.blendedRoas.toFixed(2)}x
-`.trim();
+${pacingPayload}`.trim();
 
-    // 11. Call Claude API
+    // 12. Call Claude API
     const anthropic = new Anthropic();
 
     const message = await anthropic.messages.create({
@@ -549,7 +601,7 @@ CPM trend: ${trends.cpm}
     const briefMarkdown =
       message.content[0].type === "text" ? message.content[0].text : "";
 
-    // 12. Extract "Bottom Line" section
+    // 13. Extract "Bottom Line" section
     const bottomLineMatch = briefMarkdown.match(
       /## The Bottom Line\s*\n([\s\S]*?)(?=\n## |$)/
     );
@@ -557,13 +609,13 @@ CPM trend: ${trends.cpm}
       ? bottomLineMatch[1].trim()
       : briefMarkdown.substring(0, 200);
 
-    // 13. Convert markdown to basic HTML
+    // 14. Convert markdown to basic HTML
     const briefHtml = markdownToBasicHtml(briefMarkdown);
 
-    // 14. Generate subject line
+    // 15. Generate subject line
     const subjectLine = `${brandProfile.brandName} Weekly Brief: ${thisWeekMetrics.blendedRoas.toFixed(1)}x ROAS | ${wowChanges.roas} WoW`;
 
-    // 15. Store in WeeklyBrief table
+    // 16. Store in WeeklyBrief table
     const brief = await prisma.weeklyBrief.create({
       data: {
         userId,

@@ -18,12 +18,13 @@ model User {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  accounts     Account[]
-  sessions     Session[]
-  brandProfile BrandProfile?
-  adAccounts   AdAccount[]
-  metaAds      MetaAd[]
-  weeklyBriefs WeeklyBrief[]
+  accounts       Account[]
+  sessions       Session[]
+  brandProfile   BrandProfile?
+  adAccounts     AdAccount[]
+  metaAds        MetaAd[]
+  weeklyBriefs   WeeklyBrief[]
+  monthlyTargets MonthlyTarget[]
 }
 
 model Account {
@@ -204,6 +205,28 @@ model WeeklyBrief {
   @@index([userId])
   @@index([briefDate])
   @@index([shareToken])
+}
+
+// ─── Monthly Targets (pacing & forecasting) ──────────
+
+model MonthlyTarget {
+  id             String   @id @default(cuid())
+  userId         String
+  month          DateTime // first day of the month, e.g. 2026-02-01
+  revenueGoal    Float?
+  adSpendBudget  Float?
+  targetRoas     Float?
+  targetCpa      Float?
+  targetOrders   Int?
+  targetNewCac   Float?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, month])
+  @@index([userId])
+  @@index([month])
 }
 
 // ─── Sync Logging ─────────────────────────────────────
