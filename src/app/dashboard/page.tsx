@@ -18,6 +18,7 @@ import {
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import type { PacingResult } from "@/lib/pacing";
+import MarketingTimeline from "@/components/marketing-timeline";
 
 interface Brief {
   id: string;
@@ -393,6 +394,9 @@ export default function DashboardPage() {
           {syncResult.message}
         </div>
       )}
+
+      {/* Marketing Timeline */}
+      <MarketingTimeline />
 
       {/* Pacing card */}
       <PacingCard pacing={pacing} onGoToSettings={() => router.push("/dashboard/settings")} />

@@ -34,6 +34,14 @@ If monthly pacing data is provided, include a "Monthly Pacing" section in the br
 
 If no monthly pacing data is provided, skip the Monthly Pacing section entirely and add a note at the end: "Set your monthly targets in Settings to get pacing insights in your next brief."
 
+If upcoming marketing events are provided, weave them into your recommendations naturally. For example:
+- If a product launch is 10 days away: suggest they start testing creative now and ramping spend gradually
+- If a big sale just ended: comment on how the promotion period performed vs. normal and recommend post-sale strategy
+- If an influencer campaign is coming up: suggest preparing partnership ad infrastructure and briefing creators
+- If Black Friday is 3 weeks out: flag that they should be testing holiday creative NOW, not waiting
+Don't create a separate "Calendar" section in the brief. Instead, integrate event awareness into "What's Working", "What Needs Attention", and especially "This Week's Play" where upcoming events should influence the action items.
+If there are no marketing events, don't mention it.
+
 Output format — use these exact section headers:
 
 ## The Bottom Line
@@ -487,7 +495,71 @@ export async function POST(request: NextRequest) {
       console.warn("Skipping pacing data — MonthlyTarget table may not exist yet:", pacingError);
     }
 
-    // 11. Build the full data payload string
+    // 11. Fetch marketing events for context
+    let marketingEventsPayload = "";
+    try {
+      const upcomingEventsEnd = new Date(now);
+      upcomingEventsEnd.setDate(upcomingEventsEnd.getDate() + 30);
+      const recentEventsStart = new Date(now);
+      recentEventsStart.setDate(recentEventsStart.getDate() - 14);
+
+      const upcomingEvents = await prisma.marketingEvent.findMany({
+        where: {
+          userId,
+          startDate: { gte: now, lte: upcomingEventsEnd },
+        },
+        orderBy: { startDate: "asc" },
+      });
+
+      const recentEvents = await prisma.marketingEvent.findMany({
+        where: {
+          userId,
+          OR: [
+            { startDate: { gte: recentEventsStart, lt: now } },
+            { endDate: { gte: recentEventsStart, lt: now } },
+          ],
+        },
+        orderBy: { startDate: "desc" },
+      });
+
+      if (upcomingEvents.length > 0) {
+        const formatEvent = (e: typeof upcomingEvents[number]) => {
+          const lines: string[] = [];
+          const dateStr = e.endDate
+            ? `${e.startDate.toISOString().split("T")[0]} to ${e.endDate.toISOString().split("T")[0]}`
+            : e.startDate.toISOString().split("T")[0];
+          lines.push(`- ${e.title} (${e.eventType}) — ${dateStr}`);
+          if (e.description) lines.push(`  ${e.description}`);
+          if (e.adSpendBoost != null) lines.push(`  Expected ad spend boost: $${e.adSpendBoost}/day`);
+          if (e.revenueTarget != null) lines.push(`  Revenue target: $${e.revenueTarget.toLocaleString()}`);
+          if (e.notes) lines.push(`  Notes: ${e.notes}`);
+          const daysAway = Math.ceil((e.startDate.getTime() - now.getTime()) / 86400000);
+          lines.push(`  Days away: ${daysAway}`);
+          return lines.join("\n");
+        };
+        marketingEventsPayload += `\n\nUPCOMING MARKETING EVENTS (next 30 days):\n${upcomingEvents.map(formatEvent).join("\n")}`;
+      }
+
+      if (recentEvents.length > 0) {
+        const formatRecentEvent = (e: typeof recentEvents[number]) => {
+          const dateStr = e.endDate
+            ? `${e.startDate.toISOString().split("T")[0]} to ${e.endDate.toISOString().split("T")[0]}`
+            : e.startDate.toISOString().split("T")[0];
+          const lines: string[] = [];
+          lines.push(`- ${e.title} (${e.eventType}) — ${dateStr}`);
+          if (e.description) lines.push(`  ${e.description}`);
+          if (e.revenueTarget != null) lines.push(`  Revenue target: $${e.revenueTarget.toLocaleString()}`);
+          const daysAgo = Math.ceil((now.getTime() - e.startDate.getTime()) / 86400000);
+          lines.push(`  Ended: ${daysAgo} days ago`);
+          return lines.join("\n");
+        };
+        marketingEventsPayload += `\n\nRECENTLY COMPLETED EVENTS (last 14 days):\n${recentEvents.map(formatRecentEvent).join("\n")}`;
+      }
+    } catch (eventsError) {
+      console.warn("Skipping marketing events — table may not exist yet:", eventsError);
+    }
+
+    // 12. Build the full data payload string (renumbered after events step)
     const dataPayload = `
 BRAND CONTEXT:
 Brand: ${brandProfile.brandName}
@@ -585,9 +657,9 @@ CPM trend: ${trends.cpm}
 30-day total spend: ${formatCurrency(thirtyDayMetrics.totalSpend)}
 30-day conversions: ${thirtyDayMetrics.totalConversions}
 30-day blended ROAS: ${thirtyDayMetrics.blendedRoas.toFixed(2)}x
-${pacingPayload}`.trim();
+${pacingPayload}${marketingEventsPayload}`.trim();
 
-    // 12. Call Claude API
+    // 13. Call Claude API
     const anthropic = new Anthropic();
 
     const message = await anthropic.messages.create({

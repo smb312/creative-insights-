@@ -688,8 +688,9 @@ export async function seedDemoData(userId: string) {
   // 2. Delete existing MetaAds (cascades to performance) for this user
   await prisma.metaAd.deleteMany({ where: { userId } });
 
-  // 3. Delete existing monthly targets for this user
+  // 3. Delete existing monthly targets and marketing events for this user
   await prisma.monthlyTarget.deleteMany({ where: { userId } });
+  await prisma.marketingEvent.deleteMany({ where: { userId } });
 
   // 4. Upsert brand profile for demo context
   await prisma.brandProfile.upsert({
@@ -759,7 +760,106 @@ export async function seedDemoData(userId: string) {
     },
   });
 
-  // 6. Build and insert ads with performance data
+  // 6. Create demo marketing events spread across next 3 months
+  const demoEvents = [
+    {
+      title: "Valentine's Day Sale",
+      eventType: "promotion",
+      startDate: new Date(2026, 1, 14),
+      endDate: new Date(2026, 1, 16),
+      description: "Valentine's Day promo — 25% off gift sets, couples bundles, and limited-edition packaging",
+      adSpendBoost: 800,
+      revenueTarget: 75000,
+      notes: "20% off sitewide, plus free gift wrap. Push gift guide creative hard.",
+    },
+    {
+      title: "Spring Collection Launch",
+      eventType: "product_launch",
+      startDate: new Date(2026, 2, 1),
+      description: "Launching 4 new products: Brightening Toner, Peptide Mist, SPF Lip Balm, and the reformulated Gel Cream",
+      adSpendBoost: 600,
+      revenueTarget: 120000,
+      notes: "Embargo lifts Feb 25. Creator shipments going out Feb 20.",
+    },
+    {
+      title: "Influencer Campaign Push with @SkinByAlyssa",
+      eventType: "influencer_campaign",
+      startDate: new Date(2026, 2, 10),
+      endDate: new Date(2026, 2, 17),
+      description: "Major creator push with Alyssa Chen — 5 whitelisted creatives going live, plus IG stories series",
+      adSpendBoost: 1200,
+      revenueTarget: 90000,
+      notes: "Partnership ads whitelisted through her page. Expecting 3 UGC videos + 2 static posts.",
+    },
+    {
+      title: "St. Patrick's Day Flash Sale",
+      eventType: "promotion",
+      startDate: new Date(2026, 2, 17),
+      description: "17% off everything for 24 hours. Quick flash sale to keep momentum from influencer push.",
+      adSpendBoost: 400,
+      revenueTarget: 35000,
+    },
+    {
+      title: "Content Production Week",
+      eventType: "content_shoot",
+      startDate: new Date(2026, 2, 24),
+      endDate: new Date(2026, 2, 28),
+      description: "Full week shoot: 20 new ad creatives (12 video, 8 static), product flatlays, and lifestyle content",
+      notes: "Studio booked in LA. 3 models confirmed. Shooting spring + summer campaigns.",
+    },
+    {
+      title: "Easter Promotion",
+      eventType: "seasonal",
+      startDate: new Date(2026, 3, 5),
+      endDate: new Date(2026, 3, 7),
+      description: "Easter weekend sale — Buy 2 Get 1 Free on all serums. Limited-edition spring packaging.",
+      adSpendBoost: 500,
+      revenueTarget: 55000,
+    },
+    {
+      title: "Earth Day Clean Beauty Campaign",
+      eventType: "pr_press",
+      startDate: new Date(2026, 3, 22),
+      description: "PR push around clean beauty + sustainability story. Press kits going to 50 editors and influencers.",
+      revenueTarget: 40000,
+      notes: "Partnering with 1% for the Planet. Launching refillable packaging for top 3 SKUs.",
+    },
+    {
+      title: "Mother's Day Gift Guide Launch",
+      eventType: "email_campaign",
+      startDate: new Date(2026, 4, 1),
+      description: "Email campaign: Mother's Day gift guide featuring curated sets at 3 price points ($49, $89, $149)",
+      adSpendBoost: 300,
+    },
+    {
+      title: "Mother's Day Sale",
+      eventType: "promotion",
+      startDate: new Date(2026, 4, 8),
+      endDate: new Date(2026, 4, 11),
+      description: "Mother's Day sale week — 20% off all gift sets plus free express shipping",
+      adSpendBoost: 700,
+      revenueTarget: 95000,
+      notes: "Expecting high AOV from gift sets. Run UGC testimonial ads from real moms.",
+    },
+  ];
+
+  for (const evt of demoEvents) {
+    await prisma.marketingEvent.create({
+      data: {
+        userId,
+        title: evt.title,
+        eventType: evt.eventType,
+        startDate: evt.startDate,
+        endDate: evt.endDate || null,
+        description: evt.description || null,
+        adSpendBoost: evt.adSpendBoost || null,
+        revenueTarget: evt.revenueTarget || null,
+        notes: evt.notes || null,
+      },
+    });
+  }
+
+  // 7. Build and insert ads with performance data
   const adDefs = buildAdDefinitions();
 
   // Use a counter for unique meta IDs

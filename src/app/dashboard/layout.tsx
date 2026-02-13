@@ -3,11 +3,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { Mail, LayoutDashboard, Settings, Menu, X, LogOut } from "lucide-react";
+import { Mail, LayoutDashboard, CalendarDays, Settings, Menu, X, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const NAV_ITEMS = [
   { label: "My Brief", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Calendar", href: "/dashboard/calendar", icon: CalendarDays },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
