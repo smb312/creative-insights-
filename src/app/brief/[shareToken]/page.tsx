@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { Metadata } from "next";
 import { format } from "date-fns";
-import { Mail } from "lucide-react";
+import { Zap } from "lucide-react";
 
 interface BriefPageProps {
   params: Promise<{ shareToken: string }>;
@@ -19,14 +19,14 @@ export async function generateMetadata({
   });
 
   if (!brief) {
-    return { title: "Brief Not Found | Weekly CMO Brief" };
+    return { title: "Brief Not Found | Brand Pulse" };
   }
 
   const dateRange = `${format(brief.weekStart, "MMM d")} - ${format(brief.weekEnd, "MMM d, yyyy")}`;
 
   return {
-    title: `${brief.subjectLine ?? "Weekly Brief"} | Weekly CMO Brief`,
-    description: `AI-powered ad performance brief for ${dateRange}. Get your own free weekly brief at Weekly CMO Brief.`,
+    title: `${brief.subjectLine ?? "Weekly Brief"} | Brand Pulse by Coast`,
+    description: `AI-powered ad performance brief for ${dateRange}. Get your own free Brand Pulse at pulse.growwithcoast.com.`,
   };
 }
 
@@ -179,16 +179,19 @@ export default async function PublicBriefPage({ params }: BriefPageProps) {
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2">
-            <Mail className="h-5 w-5 text-blue-600" />
+            <Zap className="h-5 w-5 text-blue-600" />
             <span className="text-sm font-semibold text-gray-900">
-              Weekly CMO Brief
+              Brand Pulse
+            </span>
+            <span className="text-[10px] font-medium text-gray-400">
+              by Coast
             </span>
           </div>
           <a
-            href="/register"
+            href="https://pulse.growwithcoast.com/register"
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
           >
-            Get Your Free Brief
+            Get Your Own Pulse
           </a>
         </div>
       </header>
@@ -236,26 +239,25 @@ export default async function PublicBriefPage({ params }: BriefPageProps) {
         {/* CTA */}
         <div className="mt-10 rounded-xl border border-blue-200 bg-blue-50 p-8 text-center">
           <h2 className="text-lg font-bold text-gray-900">
-            Get your own free weekly brief
+            Get your own Brand Pulse — free
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-gray-600">
             Connect your Meta ad account and receive an AI-powered performance
-            brief every Monday. Free for ecommerce founders and marketing
-            leaders.
+            brief every Monday. Free for ecommerce brands.
           </p>
           <a
-            href="/register"
+            href="https://pulse.growwithcoast.com/register"
             className="mt-4 inline-block rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700"
           >
-            Sign Up Free
+            Get My Free Brief
           </a>
         </div>
 
         {/* Footer branding */}
         <div className="mt-8 pb-8 text-center">
           <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400">
-            <Mail className="h-3.5 w-3.5" />
-            Powered by Weekly CMO Brief
+            <Zap className="h-3.5 w-3.5" />
+            Powered by Brand Pulse by Coast
           </div>
         </div>
       </main>

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { BarChart3 } from "lucide-react";
+import { Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -75,16 +75,16 @@ export default function RegisterPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2">
-            <BarChart3 className="h-8 w-8 text-blue-600" />
+            <Zap className="h-8 w-8 text-blue-600" />
             <span className="text-xl font-bold text-gray-900">
-              Creative Insights
+              Brand Pulse
             </span>
           </Link>
           <h1 className="mt-6 text-2xl font-bold text-gray-900">
-            Create your account
+            Create your Brand Pulse account
           </h1>
           <p className="mt-2 text-sm text-gray-600">
-            Start analyzing your ad creatives today
+            Get your free weekly performance brief
           </p>
         </div>
 

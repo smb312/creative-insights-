@@ -3,9 +3,16 @@ import "./globals.css";
 import { SessionProvider } from "@/components/providers/session-provider";
 
 export const metadata: Metadata = {
-  title: "Weekly CMO Brief — Free AI-Powered Ad Performance Briefs",
+  title: "Brand Pulse — Your Weekly Performance Brief",
   description:
-    "Connect your Meta ad account and get a personalized, AI-powered performance brief every Monday. Built for ecommerce founders.",
+    "Connect your ad accounts. Get a personalized, AI-powered performance brief every Monday. Free for ecommerce brands. Built by Coast.",
+  openGraph: {
+    title: "Brand Pulse by Coast",
+    description: "Your weekly performance brief — free for ecommerce brands",
+    siteName: "Brand Pulse",
+    type: "website",
+    url: "https://pulse.growwithcoast.com",
+  },
 };
 
 export default function RootLayout({

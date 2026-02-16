@@ -12,14 +12,14 @@ function buildEmailHtml(
   shareToken: string,
   brandName: string
 ): string {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.creativeinsights.ai";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://pulse.growwithcoast.com";
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${brandName} Weekly Brief</title>
+  <title>${brandName} — Your Weekly Pulse</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#f5f5f5;">
@@ -29,8 +29,8 @@ function buildEmailHtml(
           <!-- Header -->
           <tr>
             <td style="background-color:#1a1a1a;padding:24px 32px;">
-              <h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;">Creative Insights</h1>
-              <p style="margin:4px 0 0;font-size:13px;color:#999999;">Weekly Performance Brief</p>
+              <h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;">Brand Pulse</h1>
+              <p style="margin:4px 0 0;font-size:13px;color:#999999;">Your Weekly Performance Brief &middot; by Coast</p>
             </td>
           </tr>
 
@@ -67,7 +67,7 @@ function buildEmailHtml(
                       <a href="${appUrl}/dashboard/settings" style="color:#666666;text-decoration:underline;">Manage settings</a>
                     </p>
                     <p style="margin:0;font-size:11px;color:#cccccc;">
-                      &copy; ${new Date().getFullYear()} Creative Insights. All rights reserved.
+                      &copy; ${new Date().getFullYear()} Coast. All rights reserved.
                     </p>
                   </td>
                 </tr>
@@ -165,12 +165,12 @@ export async function POST(request: NextRequest) {
 
     // Send via Resend
     const fromEmail =
-      process.env.RESEND_FROM_EMAIL || "briefs@creativeinsights.ai";
+      process.env.RESEND_FROM_EMAIL || "pulse@growwithcoast.com";
 
     const { error: sendError } = await getResendClient().emails.send({
       from: fromEmail,
       to: brief.user.email,
-      subject: brief.subjectLine || `${brandName} Weekly Brief`,
+      subject: brief.subjectLine || `${brandName} — Your Weekly Pulse`,
       html: emailHtml,
     });
 

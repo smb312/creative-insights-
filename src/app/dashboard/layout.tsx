@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { Mail, LayoutDashboard, CalendarDays, Settings, Menu, X, LogOut } from "lucide-react";
+import { Zap, LayoutDashboard, CalendarDays, Settings, Menu, X, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const NAV_ITEMS = [
@@ -82,10 +82,15 @@ export default function DashboardLayout({
       >
         {/* Logo */}
         <div className="flex h-16 items-center gap-2.5 border-b border-gray-200 px-5">
-          <Mail className="h-6 w-6 text-blue-600" />
-          <span className="text-lg font-semibold text-gray-900">
-            Weekly CMO Brief
-          </span>
+          <Zap className="h-6 w-6 text-blue-600" />
+          <div className="flex flex-col">
+            <span className="text-lg font-semibold leading-tight text-gray-900">
+              Brand Pulse
+            </span>
+            <span className="text-[10px] font-medium leading-tight text-gray-400">
+              by Coast
+            </span>
+          </div>
           <button
             className="ml-auto rounded-md p-1 text-gray-400 hover:text-gray-600 lg:hidden"
             onClick={closeSidebar}
@@ -156,9 +161,9 @@ export default function DashboardLayout({
             <Menu className="h-5 w-5" />
           </button>
           <div className="ml-3 flex items-center gap-2">
-            <Mail className="h-5 w-5 text-blue-600" />
+            <Zap className="h-5 w-5 text-blue-600" />
             <span className="font-semibold text-gray-900">
-              Weekly CMO Brief
+              Brand Pulse
             </span>
           </div>
         </header>

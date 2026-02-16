@@ -540,7 +540,7 @@ function OnboardingContent() {
               You&apos;re all set!
             </h2>
             <p className="text-gray-600 mb-6">
-              Your first Weekly CMO Brief will arrive within 24 hours.
+              Your first Brand Pulse will arrive within 24 hours.
             </p>
             <p className="text-sm text-gray-400">
               Redirecting to your dashboard...
@@ -558,7 +558,7 @@ function OnboardingContent() {
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4">
           <p className="text-sm font-medium text-gray-500">
-            Weekly CMO Brief Setup
+            Brand Pulse Setup
           </p>
         </div>
       </div>

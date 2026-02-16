@@ -527,7 +527,7 @@ export default function DashboardPage() {
               No briefs yet
             </h2>
             <p className="mb-6 max-w-md text-gray-500">
-              Your first Weekly CMO Brief will be generated automatically each
+              Your first Brand Pulse will be generated automatically each
               Monday. You can also generate one now to see how it works with your
               current ad data.
             </p>

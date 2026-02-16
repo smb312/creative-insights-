@@ -712,7 +712,7 @@ For each article format exactly as:
     const briefHtml = markdownToBasicHtml(briefMarkdown);
 
     // 18. Generate subject line
-    const subjectLine = `${brandProfile.brandName} Weekly Brief: ${thisWeekMetrics.blendedRoas.toFixed(1)}x ROAS | ${wowChanges.roas} WoW`;
+    const subjectLine = `${brandProfile.brandName} — Your Weekly Pulse | ${thisWeekMetrics.blendedRoas.toFixed(1)}x ROAS ${wowChanges.roas} WoW`;
 
     // 19. Store in WeeklyBrief table
     const brief = await prisma.weeklyBrief.create({
