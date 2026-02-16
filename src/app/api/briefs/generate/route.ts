@@ -638,34 +638,35 @@ Generate the brief using ONLY these sections in this exact order:
 
 Keep the entire brief under 500 words. Be ruthlessly concise.
 
-After generating the brief sections above, search the web for 3 recent marketing or ecommerce news articles from the past 7 days that would be relevant to a DTC ecommerce founder. Focus on topics like:
-- Meta/Facebook/Instagram ad platform changes or updates
-- Ecommerce trends and consumer behavior shifts
-- Creator economy and influencer marketing news
+IMPORTANT: After writing the brief sections above, you MUST use your web_search tool to find 3 real, recent marketing or ecommerce news articles. Do NOT make up articles — actually search for them. Run at least 2 web searches using queries like:
+- "DTC ecommerce marketing news this week"
+- "Meta ads platform update 2025"
+- "ecommerce trends February 2026"
+
+Focus on finding articles about:
+- Meta/Facebook/Instagram ad platform changes
+- Ecommerce trends and consumer behavior
+- Creator economy and influencer marketing
 - AI in marketing
 - Major platform updates (Shopify, TikTok, Google Ads)
-- Notable DTC brand moves or case studies
+- Notable DTC brand moves
 
-For each article, provide:
-- Article title
-- Source name (e.g., "Marketing Dive", "Glossy", "Modern Retail")
-- URL
-- One-sentence summary of why it matters for an ecommerce founder
+After searching, add a Marketing Radar section with the 3 most relevant articles you found.
 
-Format as:
+For each article format exactly as:
 
 ## Marketing Radar
-1. **[Article Title]** — *Source Name*
-   Why it matters: [One sentence]
-   [URL]
+1. **Article Title** — *Source Name*
+   Why it matters: One sentence about relevance to an ecommerce founder.
+   https://actual-url-from-search-results
 
-2. **[Article Title]** — *Source Name*
-   Why it matters: [One sentence]
-   [URL]
+2. **Article Title** — *Source Name*
+   Why it matters: One sentence.
+   https://actual-url-from-search-results
 
-3. **[Article Title]** — *Source Name*
-   Why it matters: [One sentence]
-   [URL]`;
+3. **Article Title** — *Source Name*
+   Why it matters: One sentence.
+   https://actual-url-from-search-results`;
 
     // 14. Call Claude API with web search tool
     const anthropic = new Anthropic();
@@ -675,8 +676,9 @@ Format as:
       max_tokens: 3000,
       tools: [
         {
-          type: "web_search_20250305",
-          name: "web_search",
+          type: "web_search_20250305" as const,
+          name: "web_search" as const,
+          max_uses: 5,
         },
       ],
       system: CLAUDE_SYSTEM_PROMPT,
@@ -688,11 +690,11 @@ Format as:
       ],
     });
 
-    // 15. Extract text from response (may include tool_use blocks from web search)
-    const briefMarkdown = message.content
-      .filter((block: { type: string }) => block.type === "text")
-      .map((block: { type: string; text?: string }) => block.text || "")
-      .join("\n");
+    // 15. Extract text from response (may include server_tool_use and web_search_tool_result blocks)
+    const textBlocks = message.content.filter(
+      (block: { type: string }) => block.type === "text"
+    ) as { type: string; text: string }[];
+    const briefMarkdown = textBlocks.map((b) => b.text).join("\n\n").trim();
 
     // 16. Extract the first Key Callout as the bottom line summary
     const calloutMatch = briefMarkdown.match(/## Key Callouts\s*\n([\s\S]*?)(?=\n## |$)/);

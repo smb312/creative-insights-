@@ -81,12 +81,24 @@ function fmtInline(text: string): string {
     .replace(/`(.+?)`/g, '<code class="rounded bg-gray-100 px-1.5 py-0.5 text-sm font-mono">$1</code>');
 }
 
-/** Color-code a WoW change value */
-function colorChange(text: string): string {
-  const t = text.trim();
-  if (t.startsWith("+")) return `<span class="font-semibold text-green-600">${t}</span>`;
-  if (t.startsWith("-")) return `<span class="font-semibold text-red-600">${t}</span>`;
-  return `<span class="text-gray-600">${t}</span>`;
+/** Pill-shaped change indicator with trend arrow */
+function ChangeIndicator({ value }: { value: string }) {
+  const t = value.trim();
+  if (t.startsWith("+")) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+        <span>▲</span> {t}
+      </span>
+    );
+  }
+  if (t.startsWith("-")) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+        <span>▼</span> {t}
+      </span>
+    );
+  }
+  return <span className="rounded-full bg-gray-50 px-2.5 py-0.5 text-xs text-gray-500">{t}</span>;
 }
 
 function SnapshotTable({ content }: { content: string }) {
@@ -107,34 +119,43 @@ function SnapshotTable({ content }: { content: string }) {
   const body = rows.slice(1);
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200">
+    <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-gray-50">
+          <tr className="border-b border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50/60">
             {header.map((cell, i) => (
-              <th key={i} className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+              <th key={i} className="px-5 py-3 text-left text-xs font-bold uppercase tracking-wider text-blue-800/70">
                 {cell}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody>
           {body.map((row, ri) => (
-            <tr key={ri} className="hover:bg-gray-50/50">
+            <tr
+              key={ri}
+              className={`border-b border-gray-100 last:border-0 transition-colors hover:bg-blue-50/20 ${
+                ri % 2 !== 0 ? "bg-gray-50/40" : ""
+              }`}
+            >
               {row.map((cell, ci) => {
                 const isChangeCol =
                   header[ci]?.toLowerCase().includes("change") ||
                   header[ci]?.toLowerCase().includes("wow") ||
                   (ci === header.length - 1 && /^[+-]/.test(cell.trim()));
+                const isMetricCol = ci === 0;
+                const isCurrentCol = ci === 1;
+
                 return (
-                  <td key={ci} className="px-4 py-2 whitespace-nowrap">
+                  <td key={ci} className="px-5 py-3 whitespace-nowrap">
                     {isChangeCol ? (
-                      <span dangerouslySetInnerHTML={{ __html: colorChange(cell) }} />
+                      <ChangeIndicator value={cell} />
+                    ) : isCurrentCol ? (
+                      <span className="font-semibold text-gray-900" dangerouslySetInnerHTML={{ __html: fmtInline(cell) }} />
+                    ) : isMetricCol ? (
+                      <span className="font-medium text-gray-700">{cell}</span>
                     ) : (
-                      <span
-                        className={ci === 0 ? "font-medium text-gray-800" : "text-gray-600"}
-                        dangerouslySetInnerHTML={{ __html: fmtInline(cell) }}
-                      />
+                      <span className="text-gray-500" dangerouslySetInnerHTML={{ __html: fmtInline(cell) }} />
                     )}
                   </td>
                 );
@@ -200,51 +221,87 @@ function PlaySection({ content }: { content: string }) {
 }
 
 function RadarSection({ content }: { content: string }) {
-  // Parse numbered article entries
-  const articleRegex =
-    /\d+\.\s*\*\*\[?(.+?)\]?\*\*\s*[—–\-]\s*\*(.+?)\*\s*\n\s*(?:Why it matters:\s*)?(.+?)\n\s*(https?:\/\/\S+)/g;
+  // Parse numbered article entries - try multiple formats
   const articles: { title: string; source: string; summary: string; url: string }[] = [];
 
-  let match;
-  while ((match = articleRegex.exec(content)) !== null) {
-    articles.push({
-      title: match[1].trim(),
-      source: match[2].trim(),
-      summary: match[3].trim(),
-      url: match[4].trim(),
-    });
+  // Split by numbered items (1. 2. 3.)
+  const items = content.split(/(?=\d+\.\s)/g).filter((s) => s.trim());
+
+  for (const item of items) {
+    // Extract title: **Title** or **[Title]** or [**Title**]
+    const titleMatch = item.match(/\*\*\[?(.+?)\]?\*\*/);
+    // Extract source: *Source Name* or — Source
+    const sourceMatch = item.match(/[—–\-]\s*\*(.+?)\*/) || item.match(/[—–\-]\s*([A-Z][\w\s]+)/);
+    // Extract URL
+    const urlMatch = item.match(/(https?:\/\/\S+)/);
+    // Extract "Why it matters" or summary line (line after title that isn't a URL)
+    const lines = item.split("\n").map((l) => l.trim()).filter(Boolean);
+    let summary = "";
+    for (const line of lines) {
+      if (line.match(/^why it matters:?\s*/i)) {
+        summary = line.replace(/^why it matters:?\s*/i, "");
+        break;
+      }
+      // Grab any non-title, non-url descriptive line
+      if (!line.match(/^\d+\./) && !line.match(/^\*\*/) && !line.match(/^https?:\/\//) && line.length > 20) {
+        summary = line;
+        break;
+      }
+    }
+
+    if (titleMatch) {
+      articles.push({
+        title: titleMatch[1].trim(),
+        source: sourceMatch ? sourceMatch[1].trim() : "",
+        summary: summary || "",
+        url: urlMatch ? urlMatch[1].trim() : "",
+      });
+    }
   }
 
   if (articles.length === 0) {
-    // Fallback: render as formatted text
+    // Fallback: render as formatted text with clickable links
+    const htmlContent = content
+      .replace(/\n/g, "<br />")
+      .replace(/(https?:\/\/\S+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">$1</a>');
     return (
       <div
         className="text-sm text-gray-600 leading-relaxed"
-        dangerouslySetInnerHTML={{ __html: fmtInline(content.replace(/\n/g, "<br />")) }}
+        dangerouslySetInnerHTML={{ __html: fmtInline(htmlContent) }}
       />
     );
   }
 
   return (
     <div className="space-y-3">
-      {articles.map((article, i) => (
-        <a
-          key={i}
-          href={article.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block rounded-lg border border-gray-100 bg-gray-50/50 px-4 py-3 transition-colors hover:bg-gray-100 hover:border-gray-200"
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-sm font-semibold text-gray-900">{article.title}</p>
-              <p className="mt-0.5 text-xs text-gray-500">{article.source}</p>
+      {articles.map((article, i) => {
+        const Wrapper = article.url ? "a" : "div";
+        const linkProps = article.url
+          ? { href: article.url, target: "_blank" as const, rel: "noopener noreferrer" }
+          : {};
+        return (
+          <Wrapper
+            key={i}
+            {...linkProps}
+            className="block rounded-lg border border-gray-100 bg-gray-50/50 px-4 py-3 transition-colors hover:bg-gray-100 hover:border-gray-200"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">{article.title}</p>
+                {article.source && (
+                  <p className="mt-0.5 text-xs text-gray-500">{article.source}</p>
+                )}
+              </div>
+              {article.url && (
+                <ExternalLink className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
+              )}
             </div>
-            <ExternalLink className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
-          </div>
-          <p className="mt-1.5 text-xs text-gray-600 leading-relaxed">{article.summary}</p>
-        </a>
-      ))}
+            {article.summary && (
+              <p className="mt-1.5 text-xs text-gray-600 leading-relaxed">{article.summary}</p>
+            )}
+          </Wrapper>
+        );
+      })}
     </div>
   );
 }
