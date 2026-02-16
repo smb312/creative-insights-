@@ -10,18 +10,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Accept optional returnTo for post-callback redirect
+    // Accept optional returnTo and popup flag
     let returnTo = "/onboarding";
+    let popup = false;
     try {
       const body = await request.json();
       if (body.returnTo) returnTo = body.returnTo;
+      if (body.popup) popup = true;
     } catch {
       // no body is fine
     }
 
     const state = randomBytes(32).toString("hex");
     const statePayload = Buffer.from(
-      JSON.stringify({ userId, returnTo, nonce: state })
+      JSON.stringify({ userId, returnTo, popup, nonce: state })
     ).toString("base64url");
 
     const redirectUri = `${process.env.NEXTAUTH_URL}/api/meta/callback`;

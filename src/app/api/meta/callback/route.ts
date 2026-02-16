@@ -7,44 +7,62 @@ import {
   fetchAdAccounts,
 } from "@/lib/meta-api";
 
-export async function GET(request: NextRequest) {
+/** Try to extract the popup flag from the base64url-encoded state param. */
+function isPopup(stateParam: string | null): boolean {
+  if (!stateParam) return false;
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const code = searchParams.get("code");
-    const stateParam = searchParams.get("state");
-    const error = searchParams.get("error");
+    const data = JSON.parse(Buffer.from(stateParam, "base64url").toString());
+    return !!data.popup;
+  } catch {
+    return false;
+  }
+}
 
+/** Redirect helper that routes popup flows to the lightweight callback page. */
+function redirect(
+  path: string,
+  params: Record<string, string>,
+  popup: boolean
+) {
+  const query = new URLSearchParams(params).toString();
+  if (popup) {
+    const errorMsg = params.error;
+    const target = errorMsg
+      ? `/meta-callback?error=${encodeURIComponent(errorMsg)}`
+      : `/meta-callback?success=true`;
+    return NextResponse.redirect(
+      new URL(target, process.env.NEXTAUTH_URL)
+    );
+  }
+  return NextResponse.redirect(
+    new URL(`${path}?${query}`, process.env.NEXTAUTH_URL)
+  );
+}
+
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  const code = searchParams.get("code");
+  const stateParam = searchParams.get("state");
+  const error = searchParams.get("error");
+  const popup = isPopup(stateParam);
+
+  try {
     if (error) {
-      return NextResponse.redirect(
-        new URL(
-          `/dashboard?error=${encodeURIComponent("Meta authorization was denied")}`,
-          process.env.NEXTAUTH_URL
-        )
-      );
+      return redirect("/dashboard", { error: "Meta authorization was denied" }, popup);
     }
 
     if (!code || !stateParam) {
-      return NextResponse.redirect(
-        new URL(
-          "/dashboard?error=Invalid+callback+parameters",
-          process.env.NEXTAUTH_URL
-        )
-      );
+      return redirect("/dashboard", { error: "Invalid callback parameters" }, popup);
     }
 
     // Decode state
-    let stateData: { userId: string; returnTo?: string };
+    let stateData: { userId: string; returnTo?: string; popup?: boolean };
     try {
       stateData = JSON.parse(
         Buffer.from(stateParam, "base64url").toString()
       );
     } catch {
-      return NextResponse.redirect(
-        new URL(
-          "/dashboard?error=Invalid+state+parameter",
-          process.env.NEXTAUTH_URL
-        )
-      );
+      return redirect("/dashboard", { error: "Invalid state parameter" }, popup);
     }
 
     const { userId, returnTo } = stateData;
@@ -55,9 +73,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.redirect(
-        new URL("/dashboard?error=User+not+found", process.env.NEXTAUTH_URL)
-      );
+      return redirect("/dashboard", { error: "User not found" }, popup);
     }
 
     // Exchange code for short-lived token
@@ -102,6 +118,10 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    if (popup) {
+      return redirect("/meta-callback", {}, popup);
+    }
+
     const redirectPath = returnTo || "/onboarding";
     return NextResponse.redirect(
       new URL(
@@ -111,11 +131,10 @@ export async function GET(request: NextRequest) {
     );
   } catch (error) {
     console.error("Meta callback error:", error);
-    return NextResponse.redirect(
-      new URL(
-        "/dashboard?error=Failed+to+connect+Meta+account",
-        process.env.NEXTAUTH_URL
-      )
+    return redirect(
+      "/dashboard",
+      { error: "Failed to connect Meta account" },
+      popup
     );
   }
 }

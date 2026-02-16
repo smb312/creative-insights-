@@ -16,6 +16,7 @@ import {
   Shield,
   Loader2,
 } from "lucide-react";
+import { useMetaOAuthPopup } from "@/hooks/useMetaOAuthPopup";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -282,7 +283,6 @@ function OnboardingContent() {
   // Meta accounts
   const [metaAccounts, setMetaAccounts] = useState<MetaAdAccount[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
-  const [connectingMeta, setConnectingMeta] = useState(false);
   const [selectingAccount, setSelectingAccount] = useState<string | null>(null);
 
   /* ---- Load existing data on mount ---- */
@@ -305,7 +305,7 @@ function OnboardingContent() {
     loadData();
   }, []);
 
-  /* ---- If returning from Meta OAuth, jump to step 6 ---- */
+  /* ---- If returning from Meta OAuth (fallback for non-popup), jump to step 6 ---- */
   useEffect(() => {
     if (searchParams.get("selectAccount") === "true") {
       setStep(6);
@@ -379,25 +379,9 @@ function OnboardingContent() {
     }
   }, [step, fetchMetaAccounts]);
 
-  /* ---- Connect Meta OAuth ---- */
-  const connectMeta = async () => {
-    setConnectingMeta(true);
-    try {
-      const res = await fetch("/api/meta/oauth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ returnTo: "/onboarding" }),
-      });
-      if (res.ok) {
-        const { url } = await res.json();
-        window.location.href = url;
-      }
-    } catch {
-      // handle silently
-    } finally {
-      setConnectingMeta(false);
-    }
-  };
+  /* ---- Connect Meta OAuth (popup) ---- */
+  const { connecting: connectingMeta, openOAuth: connectMeta } =
+    useMetaOAuthPopup({ onSuccess: fetchMetaAccounts });
 
   /* ---- Select a Meta ad account ---- */
   const selectAccount = async (adAccountId: string) => {

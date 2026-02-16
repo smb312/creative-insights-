@@ -22,6 +22,7 @@ import {
   CheckCircle,
   Database,
 } from "lucide-react";
+import { useMetaOAuthPopup } from "@/hooks/useMetaOAuthPopup";
 import { format, startOfMonth, subMonths, addMonths } from "date-fns";
 
 interface AdAccountInfo {
@@ -69,7 +70,6 @@ export default function SettingsPage() {
   const { data: session } = useSession();
   const [settings, setSettings] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [reconnecting, setReconnecting] = useState(false);
   const [togglingPause, setTogglingPause] = useState(false);
 
   // Monthly targets state
@@ -180,6 +180,10 @@ export default function SettingsPage() {
     }
   };
 
+  /* ---- Meta OAuth popup ---- */
+  const { connecting: reconnecting, openOAuth: handleReconnectMeta } =
+    useMetaOAuthPopup({ onSuccess: fetchSettings });
+
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
@@ -187,27 +191,6 @@ export default function SettingsPage() {
   useEffect(() => {
     fetchTargets(targetMonth);
   }, [targetMonth, fetchTargets]);
-
-  const handleReconnectMeta = async () => {
-    try {
-      setReconnecting(true);
-      const res = await fetch("/api/meta/oauth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ returnTo: "/dashboard/settings" }),
-      });
-      if (!res.ok) throw new Error("Failed to initiate Meta OAuth");
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    } catch (err) {
-      console.error("Error reconnecting Meta:", err);
-      alert("Failed to initiate Meta connection. Please try again.");
-    } finally {
-      setReconnecting(false);
-    }
-  };
 
   const handleTogglePause = async () => {
     if (!settings?.profile) return;
