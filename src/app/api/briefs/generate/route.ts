@@ -7,63 +7,33 @@ import type { MonthlyTargets, MtdActuals } from "@/lib/pacing";
 
 export const maxDuration = 120; // Allow up to 2 minutes for generation
 
-const CLAUDE_SYSTEM_PROMPT = `You are a senior ecommerce performance marketing strategist writing a personalized weekly brief for a brand founder. You're direct, specific, and grounded in data. No fluff. No filler. No generic advice.
+const CLAUDE_SYSTEM_PROMPT = `You are writing a weekly performance brief for an ecommerce founder.
 
-Write like a sharp CMO giving a founder their weekly download — clear, prioritized, actionable.
+This is NOT a strategy memo. It's a sharp, scannable executive briefing they read in 2 minutes with their morning coffee.
 
 Rules:
-- Use specific numbers from their data throughout
-- Compare this week vs last week to show direction
-- Lead with the 1-2 most important things, not everything
-- Give concrete, specific recommendations (not "optimize your ads")
-- If partnership/creator ads are outperforming brand creative, call it out
-- Flag urgent issues: CPA spikes, creative fatigue, budget waste
-- Reference their stated challenges and tailor recommendations accordingly
-- Use their brand name naturally, not "your brand" or "the company"
-- Keep total length to 500-800 words
-- Be honest — if performance is bad, say so constructively
+- Be direct and blunt. No filler, no fluff, no "overall" or "in summary."
+- Use their brand name naturally.
+- Reference specific numbers — always.
+- The Weekly Snapshot table speaks for itself. Don't narrate the numbers above or below the table.
+- Pacing section: 2-3 sentences max. Are they on track or not? By how much? What's the math to get back on track?
+- Key Callouts: 3-5 bullet points. Each is ONE sentence — a single, complete insight. Use emoji indicators:
+  🟢 for positive / what's working
+  🔴 for problems / what needs attention
+  🟡 for watch items / neutral but notable
+  Mix of positive and negative. Lead with the most impactful.
+  Examples of good callouts:
+  "🟢 Partnership ads delivering 5.83x ROAS vs 2.66x brand creative — but only getting 33% of spend."
+  "🔴 5 brand ads spent $5.5K combined with zero conversions this week."
+  "🟡 Fatigue signal on 'Upgrade Your Body Care' — frequency 3.1, CTR down 17.8%."
+- This Week's Play: Exactly 3 action items. Each is ONE sentence. Start each with a bold action verb (Kill, Shift, Scale, Test, Cut, Launch, Pause, Cap). Be specific — include dollar amounts, ad names, or creator names where possible.
+- Looking Ahead: 1-2 sentences. If there are upcoming marketing events, reference them and say what to do NOW to prepare. If no events, mention what metrics to watch next week.
+- If marketing calendar events are provided, weave them into Callouts and Looking Ahead — don't create a separate section for them.
+- Total brief length: 300-500 words MAX. If you're over 500 words, you're writing too much. Cut ruthlessly.
+- Never use phrases like "let's dive in", "here's what you need to know", "in conclusion", "overall", or "it's worth noting."
+- Never repeat the same insight in multiple sections.
 
-If monthly pacing data is provided, include a "Monthly Pacing" section in the brief between "By The Numbers" and "What's Working". This section should:
-- Lead with the overall status (on track, at risk, behind, or ahead)
-- State the revenue goal and where they stand in plain language
-- If behind: calculate exactly what needs to happen to catch up (e.g., "You need to average $4,200/day for the remaining 12 days")
-- If ahead: acknowledge it and note what's driving the outperformance
-- Comment on spend pacing vs budget — are they spending too fast or too slow?
-- If ROAS or CPA is off target, flag it and connect it to the revenue impact
-- Keep this section to 3-5 sentences. Be specific with numbers.
-
-If no monthly pacing data is provided, skip the Monthly Pacing section entirely and add a note at the end: "Set your monthly targets in Settings to get pacing insights in your next brief."
-
-If upcoming marketing events are provided, weave them into your recommendations naturally. For example:
-- If a product launch is 10 days away: suggest they start testing creative now and ramping spend gradually
-- If a big sale just ended: comment on how the promotion period performed vs. normal and recommend post-sale strategy
-- If an influencer campaign is coming up: suggest preparing partnership ad infrastructure and briefing creators
-- If Black Friday is 3 weeks out: flag that they should be testing holiday creative NOW, not waiting
-Don't create a separate "Calendar" section in the brief. Instead, integrate event awareness into "What's Working", "What Needs Attention", and especially "This Week's Play" where upcoming events should influence the action items.
-If there are no marketing events, don't mention it.
-
-Output format — use these exact section headers:
-
-## The Bottom Line
-(2-3 sentences. The single most important takeaway this week.)
-
-## By The Numbers
-(Key metrics table: metric | this week | last week | change)
-
-## Monthly Pacing
-(Only if targets are set. 3-5 sentences on pacing status, projections, and what needs to happen.)
-
-## What's Working
-(1-2 short paragraphs on top performers and why they're winning)
-
-## What Needs Attention
-(1-2 short paragraphs on problems, fatigue, or declining areas)
-
-## This Week's Play
-(2-3 specific action items, numbered, ranked by impact)
-
-## Looking Ahead
-(1-2 sentences on what to watch next week)`;
+If no monthly pacing data is provided, skip the Pacing section entirely.`;
 
 interface AggregatedMetrics {
   totalSpend: number;
@@ -195,9 +165,6 @@ export async function POST(request: NextRequest) {
       if (!userId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
-
-      // Also allow optional userId override from body (but user must be authed)
-      // Only the authenticated user can generate their own brief
     }
 
     // 1. Get user's brand profile
@@ -424,7 +391,6 @@ export async function POST(request: NextRequest) {
     }
 
     // 9. 30-day trends (CPA/ROAS/CPM direction)
-    // Split 30-day data into first 15 days vs last 15 days for trend direction
     const trendMidpoint = new Date(thirtyDaysAgo);
     trendMidpoint.setDate(trendMidpoint.getDate() + 15);
 
@@ -464,7 +430,6 @@ export async function POST(request: NextRequest) {
       });
 
       if (monthlyTarget) {
-        // Get MTD performance across all user ads
         const mtdPerf = await prisma.metaAdPerformance.findMany({
           where: {
             metaAdId: { in: adIds },
@@ -559,7 +524,7 @@ export async function POST(request: NextRequest) {
       console.warn("Skipping marketing events — table may not exist yet:", eventsError);
     }
 
-    // 12. Build the full data payload string (renumbered after events step)
+    // 12. Build the full data payload string
     const dataPayload = `
 BRAND CONTEXT:
 Brand: ${brandProfile.brandName}
@@ -659,39 +624,95 @@ CPM trend: ${trends.cpm}
 30-day blended ROAS: ${thirtyDayMetrics.blendedRoas.toFixed(2)}x
 ${pacingPayload}${marketingEventsPayload}`.trim();
 
-    // 13. Call Claude API
+    // 13. Build the user prompt with format instructions
+    const userPrompt = `Here is the performance data for ${brandProfile.brandName}'s weekly brief:
+
+${dataPayload}
+
+Generate the brief using ONLY these sections in this exact order:
+1. Weekly Snapshot (metrics table only, no prose)
+2. Pacing (2-3 sentences if targets exist, skip if not)
+3. Key Callouts (3-5 single-line bullets with emoji indicators)
+4. This Week's Play (3 numbered action items, one sentence each)
+5. Looking Ahead (1-2 sentences)
+
+Keep the entire brief under 500 words. Be ruthlessly concise.
+
+After generating the brief sections above, search the web for 3 recent marketing or ecommerce news articles from the past 7 days that would be relevant to a DTC ecommerce founder. Focus on topics like:
+- Meta/Facebook/Instagram ad platform changes or updates
+- Ecommerce trends and consumer behavior shifts
+- Creator economy and influencer marketing news
+- AI in marketing
+- Major platform updates (Shopify, TikTok, Google Ads)
+- Notable DTC brand moves or case studies
+
+For each article, provide:
+- Article title
+- Source name (e.g., "Marketing Dive", "Glossy", "Modern Retail")
+- URL
+- One-sentence summary of why it matters for an ecommerce founder
+
+Format as:
+
+## Marketing Radar
+1. **[Article Title]** — *Source Name*
+   Why it matters: [One sentence]
+   [URL]
+
+2. **[Article Title]** — *Source Name*
+   Why it matters: [One sentence]
+   [URL]
+
+3. **[Article Title]** — *Source Name*
+   Why it matters: [One sentence]
+   [URL]`;
+
+    // 14. Call Claude API with web search tool
     const anthropic = new Anthropic();
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-5-20250929",
-      max_tokens: 2000,
+      max_tokens: 3000,
+      tools: [
+        {
+          type: "web_search_20250305",
+          name: "web_search",
+        },
+      ],
       system: CLAUDE_SYSTEM_PROMPT,
       messages: [
         {
           role: "user",
-          content: `Here is the performance data for ${brandProfile.brandName}'s weekly brief:\n\n${dataPayload}`,
+          content: userPrompt,
         },
       ],
     });
 
-    const briefMarkdown =
-      message.content[0].type === "text" ? message.content[0].text : "";
+    // 15. Extract text from response (may include tool_use blocks from web search)
+    const briefMarkdown = message.content
+      .filter((block: { type: string }) => block.type === "text")
+      .map((block: { type: string; text?: string }) => block.text || "")
+      .join("\n");
 
-    // 13. Extract "Bottom Line" section
-    const bottomLineMatch = briefMarkdown.match(
-      /## The Bottom Line\s*\n([\s\S]*?)(?=\n## |$)/
-    );
-    const bottomLine = bottomLineMatch
-      ? bottomLineMatch[1].trim()
-      : briefMarkdown.substring(0, 200);
+    // 16. Extract the first Key Callout as the bottom line summary
+    const calloutMatch = briefMarkdown.match(/## Key Callouts\s*\n([\s\S]*?)(?=\n## |$)/);
+    let bottomLine: string;
+    if (calloutMatch) {
+      // Grab the first bullet line
+      const firstBullet = calloutMatch[1].trim().split("\n")[0];
+      // Strip the emoji prefix and leading "- "
+      bottomLine = firstBullet.replace(/^-\s*/, "").replace(/^[🟢🔴🟡]\s*/, "").trim();
+    } else {
+      bottomLine = briefMarkdown.substring(0, 200);
+    }
 
-    // 14. Convert markdown to basic HTML
+    // 17. Convert markdown to basic HTML
     const briefHtml = markdownToBasicHtml(briefMarkdown);
 
-    // 15. Generate subject line
+    // 18. Generate subject line
     const subjectLine = `${brandProfile.brandName} Weekly Brief: ${thisWeekMetrics.blendedRoas.toFixed(1)}x ROAS | ${wowChanges.roas} WoW`;
 
-    // 16. Store in WeeklyBrief table
+    // 19. Store in WeeklyBrief table
     const brief = await prisma.weeklyBrief.create({
       data: {
         userId,

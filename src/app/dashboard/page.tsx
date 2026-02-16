@@ -14,6 +14,7 @@ import {
   Loader2,
   Target,
   Settings,
+  ExternalLink,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
@@ -33,125 +34,302 @@ interface Brief {
   createdAt: string;
 }
 
-/**
- * Parses a subset of Markdown into HTML for brief rendering.
- * Handles: headings (##), bold (**), bullet lists (-), and simple pipe tables.
- */
-function parseMarkdown(md: string): string {
-  const lines = md.split("\n");
-  const html: string[] = [];
-  let inList = false;
-  let inTable = false;
+/* ------------------------------------------------------------------ */
+/*  Brief Section Parser & Renderers                                    */
+/* ------------------------------------------------------------------ */
 
-  for (let i = 0; i < lines.length; i++) {
-    let line = lines[i];
+interface BriefSection {
+  title: string;
+  key: string;
+  content: string;
+}
 
-    // Close open list if this line isn't a bullet
-    if (inList && !line.match(/^\s*-\s/)) {
-      html.push("</ul>");
-      inList = false;
-    }
+function parseBriefSections(markdown: string): BriefSection[] {
+  const sections: BriefSection[] = [];
+  const parts = markdown.split(/^## /gm);
 
-    // Table rows (lines starting with |)
-    if (line.trim().startsWith("|")) {
-      // Skip separator rows like |---|---|
-      if (line.trim().match(/^\|[\s\-:|]+\|$/)) {
-        continue;
-      }
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
 
-      const cells = line
-        .split("|")
-        .filter((c) => c.trim() !== "")
-        .map((c) => c.trim());
+    const newlineIdx = trimmed.indexOf("\n");
+    if (newlineIdx === -1) continue;
 
-      if (!inTable) {
-        inTable = true;
-        html.push(
-          '<div class="overflow-x-auto my-4"><table class="min-w-full border-collapse text-sm">'
+    const title = trimmed.substring(0, newlineIdx).trim();
+    const content = trimmed.substring(newlineIdx + 1).trim();
+
+    let key = "generic";
+    const lower = title.toLowerCase();
+    if (lower.includes("snapshot")) key = "snapshot";
+    else if (lower.includes("pacing")) key = "pacing";
+    else if (lower.includes("callout")) key = "callouts";
+    else if (lower.includes("play")) key = "play";
+    else if (lower.includes("ahead")) key = "ahead";
+    else if (lower.includes("radar")) key = "radar";
+
+    sections.push({ title, key, content });
+  }
+
+  return sections;
+}
+
+/** Inline bold, italic, inline code */
+function fmtInline(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-gray-900">$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em class="text-gray-500">$1</em>')
+    .replace(/`(.+?)`/g, '<code class="rounded bg-gray-100 px-1.5 py-0.5 text-sm font-mono">$1</code>');
+}
+
+/** Color-code a WoW change value */
+function colorChange(text: string): string {
+  const t = text.trim();
+  if (t.startsWith("+")) return `<span class="font-semibold text-green-600">${t}</span>`;
+  if (t.startsWith("-")) return `<span class="font-semibold text-red-600">${t}</span>`;
+  return `<span class="text-gray-600">${t}</span>`;
+}
+
+function SnapshotTable({ content }: { content: string }) {
+  const lines = content.split("\n").filter((l) => l.trim().startsWith("|"));
+  if (lines.length === 0) {
+    return <p className="text-sm text-gray-600">{content}</p>;
+  }
+
+  const rows = lines
+    .filter((l) => !l.trim().match(/^\|[\s\-:|]+\|$/))
+    .map((l) =>
+      l.split("|").filter((c) => c.trim() !== "").map((c) => c.trim())
+    );
+
+  if (rows.length < 2) return null;
+
+  const header = rows[0];
+  const body = rows.slice(1);
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-gray-50">
+            {header.map((cell, i) => (
+              <th key={i} className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                {cell}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {body.map((row, ri) => (
+            <tr key={ri} className="hover:bg-gray-50/50">
+              {row.map((cell, ci) => {
+                const isChangeCol =
+                  header[ci]?.toLowerCase().includes("change") ||
+                  header[ci]?.toLowerCase().includes("wow") ||
+                  (ci === header.length - 1 && /^[+-]/.test(cell.trim()));
+                return (
+                  <td key={ci} className="px-4 py-2 whitespace-nowrap">
+                    {isChangeCol ? (
+                      <span dangerouslySetInnerHTML={{ __html: colorChange(cell) }} />
+                    ) : (
+                      <span
+                        className={ci === 0 ? "font-medium text-gray-800" : "text-gray-600"}
+                        dangerouslySetInnerHTML={{ __html: fmtInline(cell) }}
+                      />
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function CalloutsSection({ content }: { content: string }) {
+  const bullets = content.split("\n").filter((l) => l.trim().startsWith("-"));
+
+  return (
+    <div className="space-y-2">
+      {bullets.map((bullet, i) => {
+        const text = bullet.replace(/^\s*-\s*/, "");
+        const emoji = text.match(/^(🟢|🔴|🟡)/)?.[1];
+        const cleanText = text.replace(/^(🟢|🔴|🟡)\s*/, "");
+
+        let dotColor = "bg-gray-400";
+        if (emoji === "🟢") dotColor = "bg-green-500";
+        else if (emoji === "🔴") dotColor = "bg-red-500";
+        else if (emoji === "🟡") dotColor = "bg-yellow-500";
+
+        return (
+          <div key={i} className="flex items-start gap-3 rounded-lg bg-gray-50 px-4 py-3">
+            <span className={`mt-1.5 h-2.5 w-2.5 flex-shrink-0 rounded-full ${dotColor}`} />
+            <span
+              className="text-sm text-gray-700 leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: fmtInline(cleanText) }}
+            />
+          </div>
         );
-        // First row becomes header
-        html.push("<thead><tr>");
-        cells.forEach((cell) => {
-          html.push(
-            `<th class="border border-gray-200 bg-gray-50 px-4 py-2 text-left font-semibold text-gray-700">${inlineFormat(cell)}</th>`
-          );
-        });
-        html.push("</tr></thead><tbody>");
-        continue;
-      }
+      })}
+    </div>
+  );
+}
 
-      html.push("<tr>");
-      cells.forEach((cell) => {
-        html.push(
-          `<td class="border border-gray-200 px-4 py-2 text-gray-600">${inlineFormat(cell)}</td>`
+function PlaySection({ content }: { content: string }) {
+  const items = content.split("\n").filter((l) => l.trim().match(/^\d+\./));
+
+  return (
+    <div className="space-y-3">
+      {items.map((item, i) => {
+        const text = item.replace(/^\s*\d+\.\s*/, "");
+        return (
+          <div key={i} className="flex items-start gap-3">
+            <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
+              {i + 1}
+            </span>
+            <span
+              className="text-sm text-gray-700 leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: fmtInline(text) }}
+            />
+          </div>
         );
-      });
-      html.push("</tr>");
-      continue;
-    }
+      })}
+    </div>
+  );
+}
 
-    // Close table if we were in one
-    if (inTable) {
-      html.push("</tbody></table></div>");
-      inTable = false;
-    }
+function RadarSection({ content }: { content: string }) {
+  // Parse numbered article entries
+  const articleRegex =
+    /\d+\.\s*\*\*\[?(.+?)\]?\*\*\s*[—–\-]\s*\*(.+?)\*\s*\n\s*(?:Why it matters:\s*)?(.+?)\n\s*(https?:\/\/\S+)/g;
+  const articles: { title: string; source: string; summary: string; url: string }[] = [];
 
-    // Headings
-    if (line.startsWith("### ")) {
-      html.push(
-        `<h3 class="mt-6 mb-2 text-base font-semibold text-gray-900">${inlineFormat(line.slice(4))}</h3>`
-      );
-      continue;
-    }
-    if (line.startsWith("## ")) {
-      html.push(
-        `<h2 class="mt-8 mb-3 text-lg font-bold text-gray-900">${inlineFormat(line.slice(3))}</h2>`
-      );
-      continue;
-    }
-    if (line.startsWith("# ")) {
-      html.push(
-        `<h1 class="mt-8 mb-3 text-xl font-bold text-gray-900">${inlineFormat(line.slice(2))}</h1>`
-      );
-      continue;
-    }
+  let match;
+  while ((match = articleRegex.exec(content)) !== null) {
+    articles.push({
+      title: match[1].trim(),
+      source: match[2].trim(),
+      summary: match[3].trim(),
+      url: match[4].trim(),
+    });
+  }
 
-    // Bullet list items
-    const bulletMatch = line.match(/^\s*-\s(.+)/);
-    if (bulletMatch) {
-      if (!inList) {
-        inList = true;
-        html.push('<ul class="my-2 ml-4 list-disc space-y-1 text-gray-600">');
-      }
-      html.push(`<li>${inlineFormat(bulletMatch[1])}</li>`);
-      continue;
-    }
-
-    // Blank line
-    if (line.trim() === "") {
-      html.push("<br />");
-      continue;
-    }
-
-    // Regular paragraph
-    html.push(
-      `<p class="my-2 text-gray-600 leading-relaxed">${inlineFormat(line)}</p>`
+  if (articles.length === 0) {
+    // Fallback: render as formatted text
+    return (
+      <div
+        className="text-sm text-gray-600 leading-relaxed"
+        dangerouslySetInnerHTML={{ __html: fmtInline(content.replace(/\n/g, "<br />")) }}
+      />
     );
   }
 
-  // Close any open structures
-  if (inList) html.push("</ul>");
-  if (inTable) html.push("</tbody></table></div>");
-
-  return html.join("\n");
+  return (
+    <div className="space-y-3">
+      {articles.map((article, i) => (
+        <a
+          key={i}
+          href={article.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block rounded-lg border border-gray-100 bg-gray-50/50 px-4 py-3 transition-colors hover:bg-gray-100 hover:border-gray-200"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">{article.title}</p>
+              <p className="mt-0.5 text-xs text-gray-500">{article.source}</p>
+            </div>
+            <ExternalLink className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
+          </div>
+          <p className="mt-1.5 text-xs text-gray-600 leading-relaxed">{article.summary}</p>
+        </a>
+      ))}
+    </div>
+  );
 }
 
-/** Handle inline formatting: bold, italic, inline code */
-function inlineFormat(text: string): string {
-  return text
-    .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-gray-900">$1</strong>')
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/`(.+?)`/g, '<code class="rounded bg-gray-100 px-1.5 py-0.5 text-sm font-mono">$1</code>');
+function GenericSection({ content }: { content: string }) {
+  const lines = content.split("\n");
+  const elements: string[] = [];
+  let inList = false;
+
+  for (const line of lines) {
+    const bulletMatch = line.match(/^\s*-\s(.+)/);
+    if (bulletMatch) {
+      if (!inList) {
+        elements.push('<ul class="my-2 ml-4 list-disc space-y-1 text-sm text-gray-600">');
+        inList = true;
+      }
+      elements.push(`<li>${fmtInline(bulletMatch[1])}</li>`);
+    } else {
+      if (inList) {
+        elements.push("</ul>");
+        inList = false;
+      }
+      if (line.trim()) {
+        elements.push(
+          `<p class="text-sm text-gray-600 leading-relaxed my-1">${fmtInline(line)}</p>`
+        );
+      }
+    }
+  }
+  if (inList) elements.push("</ul>");
+
+  return <div dangerouslySetInnerHTML={{ __html: elements.join("\n") }} />;
+}
+
+function BriefRenderer({ markdown }: { markdown: string }) {
+  const sections = parseBriefSections(markdown);
+
+  if (sections.length === 0) {
+    return (
+      <div
+        className="prose prose-sm max-w-none text-gray-600"
+        dangerouslySetInnerHTML={{ __html: fmtInline(markdown.replace(/\n/g, "<br />")) }}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {sections.map((section, i) => {
+        const isRadar = section.key === "radar";
+
+        return (
+          <div key={i}>
+            {isRadar && <hr className="border-gray-200" />}
+
+            <h2
+              className={`mb-3 text-sm font-bold uppercase tracking-wider ${
+                isRadar ? "text-gray-400" : "text-gray-500"
+              }`}
+            >
+              {section.title}
+            </h2>
+
+            {section.key === "snapshot" && <SnapshotTable content={section.content} />}
+            {section.key === "callouts" && <CalloutsSection content={section.content} />}
+            {section.key === "play" && <PlaySection content={section.content} />}
+            {section.key === "radar" && <RadarSection content={section.content} />}
+            {(section.key === "pacing" || section.key === "ahead") && (
+              <p
+                className="text-sm text-gray-600 leading-relaxed"
+                dangerouslySetInnerHTML={{
+                  __html: fmtInline(
+                    section.content
+                      .replace(/\n\n/g, '</p><p class="text-sm text-gray-600 leading-relaxed mt-2">')
+                      .replace(/\n/g, "<br />")
+                  ),
+                }}
+              />
+            )}
+            {section.key === "generic" && <GenericSection content={section.content} />}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function DashboardPage() {
@@ -414,24 +592,18 @@ export default function DashboardPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Bottom line summary */}
+          {/* Key insight summary banner */}
           {brief.bottomLine && (
-            <div className="mb-6 rounded-lg bg-blue-50 p-4">
-              <p className="text-sm font-medium text-blue-900">
+            <div className="mb-6 flex items-start gap-3 rounded-lg bg-blue-50 px-4 py-3">
+              <Sparkles className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" />
+              <p className="text-sm font-medium text-blue-900 leading-relaxed">
                 {brief.bottomLine}
               </p>
             </div>
           )}
 
-          {/* Rendered markdown */}
-          {brief.briefMarkdown && (
-            <div
-              className="prose prose-sm max-w-none"
-              dangerouslySetInnerHTML={{
-                __html: parseMarkdown(brief.briefMarkdown),
-              }}
-            />
-          )}
+          {/* Section-aware brief rendering */}
+          {brief.briefMarkdown && <BriefRenderer markdown={brief.briefMarkdown} />}
 
           {/* Action buttons */}
           <div className="mt-8 flex flex-wrap gap-3 border-t border-gray-100 pt-6">
