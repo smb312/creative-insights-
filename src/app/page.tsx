@@ -1,35 +1,25 @@
 import Link from "next/link";
 import {
   ArrowRight,
-  BarChart3,
-  TrendingUp,
-  Shield,
-  Users,
-  Eye,
   ChevronDown,
-  Target,
-  AlertTriangle,
-  Lightbulb,
-  UserCheck,
   Lock,
-  Newspaper,
-  Zap,
+  Building2,
+  CircleSlash,
 } from "lucide-react";
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      {/* Header */}
-      <header className="border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+    <div className="min-h-screen bg-white">
+      {/* Navigation */}
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-navy/90 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
-              <Zap className="h-7 w-7 text-blue-600" />
               <div className="flex items-baseline gap-1.5">
-                <span className="text-xl font-bold text-gray-900">
+                <span className="text-lg font-semibold text-white tracking-tight font-serif">
                   Brand Pulse
                 </span>
-                <span className="text-xs font-medium text-gray-400">
+                <span className="text-xs font-medium text-slate-400">
                   by Coast
                 </span>
               </div>
@@ -37,15 +27,15 @@ export default function HomePage() {
             <div className="flex items-center gap-4">
               <Link
                 href="/login"
-                className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                className="text-sm font-medium text-slate-300 hover:text-white transition-colors"
               >
                 Log in
               </Link>
               <Link
                 href="/register"
-                className="inline-flex items-center px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
+                className="inline-flex items-center px-4 py-2 rounded-lg bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors"
               >
-                Get My Free Brief
+                Start My Free Brief
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </div>
@@ -53,298 +43,376 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-28 pb-20">
-        <div className="text-center max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-sm font-medium mb-6">
-            <Zap className="h-4 w-4" />
-            Free for ecommerce brands
+      {/* Section 1: Hero */}
+      <section className="relative bg-navy pt-32 pb-20 sm:pt-40 sm:pb-28 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--color-navy-light)_0%,_var(--color-navy)_70%)]" />
+        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="animate-fade-in-up">
+            <span className="inline-block px-4 py-1.5 rounded-full bg-white/10 text-slate-300 text-sm font-medium tracking-wide mb-8 border border-white/10">
+              For ecommerce brands doing $50K+/month
+            </span>
           </div>
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 tracking-tight leading-tight">
-            Your Weekly
-            <span className="text-blue-600"> Performance Brief</span>
+          <h1 className="animate-fade-in-up-delay-1 text-4xl sm:text-5xl lg:text-6xl font-serif text-white leading-tight tracking-tight">
+            Stop Guessing.
+            <br />
+            Start Your Week With Clarity.
           </h1>
-          <p className="mt-6 text-lg sm:text-xl text-gray-600 leading-relaxed max-w-2xl mx-auto">
-            Connect your Meta ad account. Get a personalized, AI-powered brief
-            delivered every Monday morning. Know what&apos;s working, what&apos;s
-            not, and exactly what to do next — without digging through Ads
-            Manager.
+          <p className="animate-fade-in-up-delay-2 mt-6 text-lg sm:text-xl text-slate-300 leading-relaxed max-w-2xl mx-auto">
+            Brand Pulse connects to your Meta ads and Shopify store, then
+            delivers a sharp, personalized performance brief every Monday
+            morning. What changed, what&apos;s working, what to do next — in 2
+            minutes flat.
           </p>
-          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="animate-fade-in-up-delay-3 mt-10">
             <Link
               href="/register"
-              className="inline-flex items-center px-8 py-4 rounded-lg bg-blue-600 text-white font-semibold text-lg hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/25"
+              className="inline-flex items-center px-8 py-4 rounded-lg bg-accent text-white font-semibold text-lg hover:bg-accent-hover transition-all shadow-lg shadow-accent/25 hover:shadow-accent/40"
             >
-              Get My Free Brief
+              Start My Free Brief
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
+            <p className="mt-4 text-sm text-slate-400">
+              Takes 2 minutes · Connects to Meta &amp; Shopify · Free forever
+            </p>
           </div>
-          <p className="mt-4 text-sm text-gray-500">
-            2-minute setup. No credit card required.
+        </div>
+      </section>
+
+      {/* Section 2: The Pain */}
+      <section className="py-20 sm:py-28 bg-warm-bg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-14">
+            <h2 className="text-3xl sm:text-4xl font-serif text-navy">
+              Sound familiar?
+            </h2>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6 lg:gap-8 max-w-5xl mx-auto">
+            <PainCard text="It's Monday morning and you're dreading the 45 minutes it'll take to figure out what happened in your ad account last week." />
+            <PainCard text="You're spending $50K+ a month on Meta but couldn't tell someone your real ROAS if they asked you right now." />
+            <PainCard text="Your team sends you dashboards full of numbers, but nobody tells you what any of it actually means — or what to do about it." />
+          </div>
+          <p className="text-center mt-14 text-xl font-serif text-navy">
+            Brand Pulse fixes this.
           </p>
         </div>
       </section>
 
-      {/* How It Works */}
-      <section className="bg-gray-50 py-20">
+      {/* Section 3: How It Works */}
+      <section className="py-20 sm:py-28 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">
-              How it works
+            <h2 className="text-3xl sm:text-4xl font-serif text-navy">
+              Three steps. Two minutes. Done.
             </h2>
-            <p className="mt-4 text-lg text-gray-600">
-              From sign-up to your first brief in under 2 minutes
-            </p>
           </div>
-          <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
+          <div className="grid md:grid-cols-3 gap-8 lg:gap-16 max-w-5xl mx-auto">
             <StepCard
-              step="1"
-              icon={<UserCheck className="h-6 w-6 text-blue-600" />}
+              step="01"
               title="Tell us about your brand"
-              description="Quick onboarding so we can tailor your brief to your business, goals, and challenges."
+              description="A quick profile — your industry, goals, targets, and what you care about. Takes 60 seconds."
             />
             <StepCard
-              step="2"
-              icon={<Shield className="h-6 w-6 text-blue-600" />}
-              title="Connect your ad account"
-              description="View-only access to your Meta ad data. We never modify anything. Connect in one click."
+              step="02"
+              title="Connect your data"
+              description="Link your Meta ad account and Shopify store with one click each. View-only access — we can never modify anything."
             />
             <StepCard
-              step="3"
-              icon={<Zap className="h-6 w-6 text-blue-600" />}
-              title="Get your brief every Monday"
-              description="AI-powered insights, pacing against your goals, creative performance, and action items — delivered to your inbox."
+              step="03"
+              title="Get your Monday brief"
+              description="Every Monday at 6am, you get a personalized brief: what changed, what's working, what to cut, and exactly what to do this week."
             />
           </div>
         </div>
       </section>
 
-      {/* What's In Your Brief */}
-      <section className="py-20">
+      {/* Section 4: What's In Your Brief */}
+      <section className="py-20 sm:py-28 bg-warm-bg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">
-              What&apos;s in your brief
+            <h2 className="text-3xl sm:text-4xl font-serif text-navy">
+              Everything you need to know.
+              <br className="hidden sm:block" /> Nothing you don&apos;t.
             </h2>
-            <p className="mt-4 text-lg text-gray-600">
-              Everything you need to know — delivered free every Monday
-            </p>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto">
             <BriefFeatureCard
-              icon={<BarChart3 className="h-6 w-6 text-blue-600" />}
-              title="Weekly performance snapshot"
-              description="Key metrics at a glance with week-over-week trends. See exactly how your ads performed without opening Ads Manager."
+              emoji="📊"
+              title="Weekly Snapshot"
+              description="Revenue, ROAS, CPA, CTR — this week vs. last week, with trend arrows. One table, instant clarity."
             />
             <BriefFeatureCard
-              icon={<Target className="h-6 w-6 text-green-600" />}
-              title="Monthly pacing against your targets"
-              description="Track revenue and spend against your goals. Know if you're on track, ahead, or behind — and by how much."
+              emoji="📈"
+              title="Monthly Pacing"
+              description="Are you on track to hit your revenue goal? How much do you need to average per day for the rest of the month? We do the math."
             />
             <BriefFeatureCard
-              icon={<TrendingUp className="h-6 w-6 text-purple-600" />}
-              title="Top & bottom performing creatives"
-              description="Instantly know which creatives are driving results and which ones are draining your budget, with specific callouts."
+              emoji="🎯"
+              title="Key Callouts"
+              description="The 3-5 things that actually matter this week. Your best-performing creator ad. The $5K you're wasting on ads with zero conversions. The fatigue signal on your top ad."
             />
             <BriefFeatureCard
-              icon={<Users className="h-6 w-6 text-orange-600" />}
-              title="Partnership vs brand creative comparison"
-              description="Understand how your creator and partnership content stacks up against your in-house creatives."
+              emoji="⚡"
+              title="This Week's Play"
+              description="Three specific actions, ranked by impact. Not vague suggestions — concrete moves like 'Kill these 3 ads' or 'Shift $20K to creator content.'"
             />
             <BriefFeatureCard
-              icon={<Lightbulb className="h-6 w-6 text-yellow-600" />}
-              title="3 prioritized action items"
-              description="Specific, actionable next steps you can implement this week. No fluff — just what to do."
+              emoji="🛍️"
+              title="True ROAS (with Shopify)"
+              description="Meta says 4.1x. Shopify says 3.2x. We show you both so you know what's real."
             />
             <BriefFeatureCard
-              icon={<Newspaper className="h-6 w-6 text-red-600" />}
-              title="Marketing news radar"
-              description="3 relevant industry articles curated for ecommerce founders. Stay sharp without the noise."
+              emoji="📅"
+              title="Calendar-Aware"
+              description="Got a product launch in 10 days? Your brief knows. It'll tell you to start testing creative now, not the day before."
+            />
+          </div>
+          <div className="mt-8 text-center">
+            <BriefFeatureCardWide
+              emoji="📰"
+              title="Marketing Radar"
+              description="Three hand-picked articles about what's changing in ecommerce, Meta ads, and creator marketing — so you stay sharp."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Section 5: Who This Is For */}
+      <section className="py-20 sm:py-28 bg-white">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-14">
+            <h2 className="text-3xl sm:text-4xl font-serif text-navy">
+              Built for founders who run on data,
+              <br className="hidden sm:block" /> not dashboards
+            </h2>
+          </div>
+          <div className="space-y-6 max-w-2xl mx-auto">
+            <PersonaCard text="The CEO who wants a Monday morning pulse without sitting through a reporting call." />
+            <PersonaCard text="The CMO who needs to know if the team's hitting targets before the standup." />
+            <PersonaCard text="The solo founder who's running ads themselves and doesn't have time to analyze everything every week." />
+          </div>
+          <p className="text-center mt-14 text-lg text-slate-600 max-w-xl mx-auto leading-relaxed">
+            If you&apos;re spending money on Meta ads and selling on Shopify,
+            Brand Pulse was built for you.
+          </p>
+        </div>
+      </section>
+
+      {/* Section 6: Trust & Credibility */}
+      <section className="py-20 sm:py-24 bg-warm-bg">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
+            <TrustCard
+              icon={<Lock className="h-6 w-6" />}
+              title="View-only access"
+              description="We read your data. We never modify your ad account or Shopify store. Ever."
+            />
+            <TrustCard
+              icon={<Building2 className="h-6 w-6" />}
+              title="Built by Coast"
+              description="We manage millions in ad spend for ecommerce brands. This is the same analysis we give our clients — now free for everyone."
+            />
+            <TrustCard
+              icon={<CircleSlash className="h-6 w-6" />}
+              title="No catch. Actually free."
+              description="No trial. No credit card. No upsell popup on day 7. Brand Pulse is free because it's how we show you what we can do."
             />
           </div>
         </div>
       </section>
 
-      {/* Trust Elements */}
-      <section className="bg-gray-50 py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="flex flex-col items-center text-center p-6">
-              <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center mb-4">
-                <Eye className="h-7 w-7 text-blue-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                View-only access
-              </h3>
-              <p className="text-sm text-gray-600">
-                We never modify your ad account. Read-only permissions mean your
-                campaigns, budgets, and creatives are never touched.
-              </p>
-            </div>
-            <div className="flex flex-col items-center text-center p-6">
-              <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mb-4">
-                <AlertTriangle className="h-7 w-7 text-green-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Built by Coast
-              </h3>
-              <p className="text-sm text-gray-600">
-                We manage millions in ad spend for ecommerce brands. Brand Pulse
-                is built from the insights we deliver to our clients every week.
-              </p>
-            </div>
-            <div className="flex flex-col items-center text-center p-6">
-              <div className="w-14 h-14 rounded-full bg-purple-100 flex items-center justify-center mb-4">
-                <Lock className="h-7 w-7 text-purple-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Enterprise-grade security
-              </h3>
-              <p className="text-sm text-gray-600">
-                Your data is encrypted in transit and at rest. We follow
-                industry best practices to keep your information safe.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ */}
-      <section className="py-20">
+      {/* Section 7: FAQ */}
+      <section className="py-20 sm:py-28 bg-white">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">
-              Frequently asked questions
+          <div className="text-center mb-14">
+            <h2 className="text-3xl sm:text-4xl font-serif text-navy">
+              Questions
             </h2>
           </div>
-          <div className="space-y-0 divide-y divide-gray-200">
+          <div className="space-y-0 divide-y divide-slate-200">
             <FAQItem
-              question="Is this really free?"
-              answer="Yes. Brand Pulse is completely free. We built it because we believe every ecommerce brand deserves a weekly performance brief."
+              question="What do I need to get started?"
+              answer="A Meta ad account and/or a Shopify store. The setup takes about 2 minutes."
             />
             <FAQItem
               question="What data do you access?"
-              answer="View-only access to your ad performance metrics. We can never create, edit, or delete anything in your ad account."
+              answer="Read-only ad performance metrics from Meta (spend, ROAS, CPA, conversions, creative data) and read-only order data from Shopify (revenue, orders, products). We never modify anything."
             />
             <FAQItem
-              question="Who built this?"
-              answer="Brand Pulse is built by Coast, a performance marketing agency for ecommerce brands. Learn more at growwithcoast.com."
+              question="Is this actually free?"
+              answer="Yes. Brand Pulse is built by Coast, a performance marketing agency. It's free because it's how we demonstrate our expertise. There's no premium tier, no trial expiration, no hidden fees."
             />
             <FAQItem
-              question="How is this different from Ads Manager?"
-              answer="Ads Manager shows you data. Brand Pulse tells you what it means and what to do about it."
+              question="How is this different from Ads Manager or Shopify Analytics?"
+              answer="Those show you data. Brand Pulse tells you what it means and what to do about it. In 2 minutes instead of 45."
             />
             <FAQItem
               question="Can I disconnect at any time?"
-              answer="Yes. One click in your settings and your data is removed."
+              answer="Yes. One click in Settings disconnects your accounts and deletes your data."
+            />
+            <FAQItem
+              question="Who's behind this?"
+              answer="Coast — a performance marketing agency for ecommerce brands. Learn more at growwithcoast.com."
             />
           </div>
         </div>
       </section>
 
-      {/* Final CTA */}
-      <section className="py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-blue-600 rounded-2xl px-8 py-16 text-center">
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-              Get your first brief this Monday
-            </h2>
-            <p className="text-blue-100 text-lg mb-8 max-w-2xl mx-auto">
-              Join ecommerce brands who start every week knowing exactly
-              what&apos;s working in their ad accounts.
-            </p>
+      {/* Section 8: Final CTA */}
+      <section className="relative bg-navy py-20 sm:py-28 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,_var(--color-navy-light)_0%,_var(--color-navy)_70%)]" />
+        <div className="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-serif text-white leading-tight">
+            Your first brief is one Monday away.
+          </h2>
+          <p className="mt-6 text-lg text-slate-300 max-w-xl mx-auto leading-relaxed">
+            Connect your accounts today. Get your first Brand Pulse next Monday
+            morning.
+          </p>
+          <div className="mt-10">
             <Link
               href="/register"
-              className="inline-flex items-center px-8 py-4 rounded-lg bg-white text-blue-600 font-semibold text-lg hover:bg-blue-50 transition-colors shadow-lg"
+              className="inline-flex items-center px-8 py-4 rounded-lg bg-accent text-white font-semibold text-lg hover:bg-accent-hover transition-all shadow-lg shadow-accent/25 hover:shadow-accent/40"
             >
-              Get My Free Brief
+              Start My Free Brief
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
-            <p className="mt-4 text-sm text-blue-200">
-              2-minute setup. No credit card required.
+            <p className="mt-4 text-sm text-slate-400">
+              2-minute setup · Meta &amp; Shopify · Free forever
             </p>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-gray-200 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-500 text-sm">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <Zap className="h-5 w-5 text-blue-600" />
-            <span className="font-semibold text-gray-900">Brand Pulse</span>
-            <span className="text-xs text-gray-400">by Coast</span>
+      <footer className="border-t border-slate-200 py-12 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-slate-500 text-sm">
+          <div className="flex items-center justify-center gap-1.5 mb-4">
+            <span className="font-serif text-base text-navy">Brand Pulse</span>
+            <span className="text-xs text-slate-400">by Coast</span>
           </div>
           <div className="flex items-center justify-center gap-4 mb-4">
-            <Link href="/privacy" className="hover:text-gray-700 transition-colors">
+            <Link
+              href="/privacy"
+              className="hover:text-navy transition-colors"
+            >
               Privacy Policy
             </Link>
-            <span className="text-gray-300">|</span>
-            <Link href="/terms" className="hover:text-gray-700 transition-colors">
+            <span className="text-slate-300">|</span>
+            <Link href="/terms" className="hover:text-navy transition-colors">
               Terms of Service
             </Link>
-            <span className="text-gray-300">|</span>
+            <span className="text-slate-300">|</span>
             <a
               href="https://growwithcoast.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-gray-700 transition-colors"
+              className="hover:text-navy transition-colors"
             >
               growwithcoast.com
             </a>
           </div>
-          <p>
-            &copy; {new Date().getFullYear()} Coast. All rights reserved.
-          </p>
+          <p>&copy; {new Date().getFullYear()} Coast. All rights reserved.</p>
         </div>
       </footer>
     </div>
   );
 }
 
+/* ─── Component definitions ─── */
+
+function PainCard({ text }: { text: string }) {
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-8">
+      <p className="text-slate-700 leading-relaxed text-base">{text}</p>
+    </div>
+  );
+}
+
 function StepCard({
   step,
-  icon,
   title,
   description,
 }: {
   step: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="text-center">
+      <span className="inline-block text-sm font-mono font-semibold text-accent tracking-wider mb-4">
+        {step}
+      </span>
+      <h3 className="text-xl font-semibold text-navy mb-3 font-serif">
+        {title}
+      </h3>
+      <p className="text-slate-600 leading-relaxed">{description}</p>
+    </div>
+  );
+}
+
+function BriefFeatureCard({
+  emoji,
+  title,
+  description,
+}: {
+  emoji: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-6 hover:border-slate-300 transition-colors">
+      <span className="text-2xl mb-4 block">{emoji}</span>
+      <h3 className="text-lg font-semibold text-navy mb-2">{title}</h3>
+      <p className="text-sm text-slate-600 leading-relaxed">{description}</p>
+    </div>
+  );
+}
+
+function BriefFeatureCardWide({
+  emoji,
+  title,
+  description,
+}: {
+  emoji: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="inline-flex items-start gap-4 bg-white rounded-xl border border-slate-200 p-6 text-left max-w-lg mx-auto">
+      <span className="text-2xl flex-shrink-0">{emoji}</span>
+      <div>
+        <h3 className="text-lg font-semibold text-navy mb-1">{title}</h3>
+        <p className="text-sm text-slate-600 leading-relaxed">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+function PersonaCard({ text }: { text: string }) {
+  return (
+    <div className="flex items-start gap-4 p-5 rounded-xl bg-warm-bg border border-slate-100">
+      <span className="flex-shrink-0 w-1.5 h-1.5 mt-2.5 rounded-full bg-accent" />
+      <p className="text-slate-700 leading-relaxed text-base">{text}</p>
+    </div>
+  );
+}
+
+function TrustCard({
+  icon,
+  title,
+  description,
+}: {
   icon: React.ReactNode;
   title: string;
   description: string;
 }) {
   return (
     <div className="text-center">
-      <div className="relative mx-auto mb-6">
-        <div className="w-16 h-16 rounded-2xl bg-white border border-gray-200 shadow-sm flex items-center justify-center mx-auto">
-          {icon}
-        </div>
-        <div className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold">
-          {step}
-        </div>
-      </div>
-      <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
-      <p className="text-sm text-gray-600 leading-relaxed">{description}</p>
-    </div>
-  );
-}
-
-function BriefFeatureCard({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-shadow">
-      <div className="w-12 h-12 rounded-lg bg-gray-50 flex items-center justify-center mb-4">
+      <div className="w-12 h-12 rounded-full bg-navy/5 flex items-center justify-center mx-auto mb-4 text-navy">
         {icon}
       </div>
-      <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
-      <p className="text-sm text-gray-600 leading-relaxed">{description}</p>
+      <h3 className="text-lg font-semibold text-navy mb-2">{title}</h3>
+      <p className="text-sm text-slate-600 leading-relaxed">{description}</p>
     </div>
   );
 }
@@ -358,11 +426,11 @@ function FAQItem({
 }) {
   return (
     <details className="group py-6">
-      <summary className="flex items-center justify-between cursor-pointer list-none">
-        <h3 className="text-lg font-medium text-gray-900 pr-4">{question}</h3>
-        <ChevronDown className="h-5 w-5 text-gray-500 flex-shrink-0 transition-transform group-open:rotate-180" />
+      <summary className="flex items-center justify-between cursor-pointer">
+        <h3 className="text-lg font-medium text-navy pr-4">{question}</h3>
+        <ChevronDown className="h-5 w-5 text-slate-400 flex-shrink-0 transition-transform group-open:rotate-180" />
       </summary>
-      <p className="mt-4 text-gray-600 leading-relaxed">{answer}</p>
+      <p className="mt-4 text-slate-600 leading-relaxed">{answer}</p>
     </details>
   );
 }
