@@ -85,6 +85,15 @@ export default function PrivacyPolicyPage() {
                   with view-only permissions and never modify your ad account.
                 </li>
                 <li>
+                  <strong className="text-gray-800">
+                    Shopify store data:
+                  </strong>{" "}
+                  When you connect your Shopify store, we collect read-only
+                  order data including revenue, order count, and product
+                  information. We never modify your store, create orders, or
+                  change any store settings.
+                </li>
+                <li>
                   <strong className="text-gray-800">Generated briefs:</strong>{" "}
                   The AI-generated performance briefs we create for you each
                   week.
@@ -119,6 +128,30 @@ export default function PrivacyPolicyPage() {
                 account. Your ad account remains fully under your control at all
                 times.
               </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                Specific Permissions
+              </h2>
+              <p className="mb-3">
+                We request only the minimum permissions necessary to generate
+                your brief:
+              </p>
+              <ul className="list-disc ml-5 space-y-2">
+                <li>
+                  <strong className="text-gray-800">Meta:</strong>{" "}
+                  <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-mono">ads_read</code>{" "}
+                  for ad performance metrics. We never request write permissions.
+                </li>
+                <li>
+                  <strong className="text-gray-800">Shopify:</strong>{" "}
+                  <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-mono">read_orders</code>{" "}
+                  and{" "}
+                  <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-mono">read_products</code>{" "}
+                  for store data. We never request write permissions.
+                </li>
+              </ul>
             </section>
 
             <section>
@@ -159,6 +192,36 @@ export default function PrivacyPolicyPage() {
 
             <section>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                Third-Party Platform Compliance
+              </h2>
+              <p>
+                We use the Meta Marketing API in accordance with Meta&apos;s
+                Platform Terms and Developer Policies, and the Shopify API in
+                accordance with Shopify&apos;s API Terms. We only request
+                read-only permissions and never modify connected accounts.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                Data Retention
+              </h2>
+              <p>
+                We retain ad performance data and generated briefs for 12 months
+                from creation. You can delete all data immediately at any time
+                from{" "}
+                <Link
+                  href="/dashboard/settings"
+                  className="text-blue-600 hover:underline"
+                >
+                  Settings
+                </Link>
+                .
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">
                 Data Deletion
               </h2>
               <p>
@@ -180,6 +243,46 @@ export default function PrivacyPolicyPage() {
                   Data Deletion page
                 </Link>
                 .
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                Your Rights
+              </h2>
+              <p>
+                You have the right to access, correct, and delete your data. You
+                can disconnect any connected platform or delete your entire
+                account at any time from{" "}
+                <Link
+                  href="/dashboard/settings"
+                  className="text-blue-600 hover:underline"
+                >
+                  Settings
+                </Link>
+                . You can also revoke access directly through Meta Business
+                Settings or Shopify Admin.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                International Data
+              </h2>
+              <p>
+                Your data is stored and processed in the United States. By using
+                Brand Pulse, you consent to this transfer.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                Children&apos;s Privacy
+              </h2>
+              <p>
+                Brand Pulse is not intended for anyone under 16. We do not
+                knowingly collect data from minors. If we learn we have collected
+                data from a minor, we will delete it immediately.
               </p>
             </section>
 

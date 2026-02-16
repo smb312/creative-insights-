@@ -104,17 +104,51 @@ export default function TermsOfServicePage() {
                 4. Data Access
               </h2>
               <p>
-                By connecting your Meta ad account, you grant Brand Pulse
-                read-only access to your ad performance data. We will never
-                modify, create, or delete anything in your ad account. You can
-                revoke this access at any time through your Brand Pulse settings
-                or through your Meta Business settings.
+                By connecting your Meta ad account or Shopify store, you grant
+                Brand Pulse read-only access to your performance data. We will
+                never modify, create, or delete anything in your ad account or
+                store. You can revoke this access at any time through your Brand
+                Pulse settings, Meta Business Settings, or Shopify Admin.
               </p>
             </section>
 
             <section>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">
-                5. Service Availability
+                5. Intellectual Property
+              </h2>
+              <p>
+                AI-generated briefs are provided for your personal business use.
+                Coast retains no ownership of your ad data or store data. We may
+                use anonymized, aggregated data across all users for industry
+                benchmarking.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                6. Acceptable Use
+              </h2>
+              <p>
+                You may not reverse engineer, scrape, redistribute, or resell
+                data or insights obtained through Brand Pulse.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                7. Third-Party Services
+              </h2>
+              <p>
+                Brand Pulse integrates with Meta and Shopify. Your use of these
+                platforms is subject to their respective terms of service. We
+                are not responsible for changes to third-party APIs or
+                platforms.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                8. Service Availability
               </h2>
               <p>
                 Brand Pulse is provided &ldquo;as is&rdquo; and &ldquo;as
@@ -126,7 +160,7 @@ export default function TermsOfServicePage() {
 
             <section>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">
-                6. Limitation of Liability
+                9. Limitation of Liability
               </h2>
               <p>
                 Coast and Brand Pulse shall not be liable for any indirect,
@@ -140,7 +174,7 @@ export default function TermsOfServicePage() {
 
             <section>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">
-                7. Account Termination
+                10. Account Termination
               </h2>
               <p>
                 You may terminate your account at any time by deleting it from
@@ -152,7 +186,7 @@ export default function TermsOfServicePage() {
 
             <section>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">
-                8. Changes to Terms
+                11. Changes to Terms
               </h2>
               <p>
                 We may update these Terms of Service at any time. Continued use
@@ -164,7 +198,7 @@ export default function TermsOfServicePage() {
 
             <section>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">
-                9. Governing Law
+                12. Governing Law
               </h2>
               <p>
                 These terms shall be governed by and construed in accordance
@@ -175,7 +209,7 @@ export default function TermsOfServicePage() {
 
             <section>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">
-                10. Contact
+                13. Contact
               </h2>
               <p>
                 For questions about these terms, contact us at{" "}
