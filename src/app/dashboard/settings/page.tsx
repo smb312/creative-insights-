@@ -80,6 +80,10 @@ export default function SettingsPage() {
   const [targetSaved, setTargetSaved] = useState(false);
   const [copyingPrev, setCopyingPrev] = useState(false);
 
+  // Disconnect Meta state
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+
   // Demo data state
   const [seedingDemo, setSeedingDemo] = useState(false);
   const [seedResult, setSeedResult] = useState<string | null>(null);
@@ -217,6 +221,21 @@ export default function SettingsPage() {
     }
   };
 
+  const handleDisconnectMeta = async () => {
+    setDisconnecting(true);
+    try {
+      const res = await fetch("/api/meta/disconnect", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to disconnect");
+      setShowDisconnectConfirm(false);
+      await fetchSettings();
+    } catch (err) {
+      console.error("Error disconnecting Meta:", err);
+      alert("Failed to disconnect Meta. Please try again.");
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
   const handleDeleteAccount = () => {
     const confirmed = window.confirm(
       "Are you sure you want to delete your account? This action cannot be undone and will permanently remove all your data including briefs, ad data, and profile information."
@@ -312,15 +331,57 @@ export default function SettingsPage() {
                     {adAccount.status === "ACTIVE" ? "Connected" : adAccount.status}
                   </Badge>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  loading={reconnecting}
-                  onClick={handleReconnectMeta}
-                >
-                  <ExternalLink className="mr-1.5 h-4 w-4" />
-                  Reconnect Meta
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    loading={reconnecting}
+                    onClick={handleReconnectMeta}
+                  >
+                    <ExternalLink className="mr-1.5 h-4 w-4" />
+                    Reconnect Meta
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowDisconnectConfirm(true)}
+                  >
+                    <Link2 className="mr-1.5 h-4 w-4" />
+                    Disconnect
+                  </Button>
+                </div>
+
+                {/* Disconnect confirmation */}
+                {showDisconnectConfirm && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                      <div className="space-y-3">
+                        <p className="text-sm text-red-700">
+                          Are you sure? You won&apos;t receive briefs until you reconnect.
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            loading={disconnecting}
+                            onClick={handleDisconnectMeta}
+                          >
+                            Yes, Disconnect
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={disconnecting}
+                            onClick={() => setShowDisconnectConfirm(false)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-4">
