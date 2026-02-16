@@ -15,6 +15,7 @@ import {
   Sparkles,
   Shield,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { useMetaOAuthPopup } from "@/hooks/useMetaOAuthPopup";
 
@@ -269,6 +270,7 @@ function OnboardingContent() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [completed, setCompleted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Monthly targets (Step 5)
   const [monthlyTargets, setMonthlyTargets] = useState({
@@ -332,6 +334,7 @@ function OnboardingContent() {
   /* ---- Complete onboarding ---- */
   const completeOnboarding = useCallback(async () => {
     setSaving(true);
+    setError(null);
     try {
       const res = await fetch("/api/onboarding", {
         method: "PUT",
@@ -348,9 +351,18 @@ function OnboardingContent() {
         }
         setCompleted(true);
         setTimeout(() => router.push("/dashboard"), 3000);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        if (body.missingFields?.length) {
+          setError(
+            `Please complete the following before finishing: ${body.missingFields.join(", ")}`
+          );
+        } else {
+          setError(body.error || "Something went wrong. Please try again.");
+        }
       }
     } catch {
-      // handle silently
+      setError("Network error. Please check your connection and try again.");
     } finally {
       setSaving(false);
     }
@@ -436,15 +448,18 @@ function OnboardingContent() {
       await saveMonthlyTargets();
     }
 
+    // On the final step, skip the redundant saveStep and go straight to completion.
+    // Step 6 (Connect Meta) has no form fields to save.
+    if (step === TOTAL_STEPS) {
+      await completeOnboarding();
+      return;
+    }
+
     const ok = await saveStep();
     if (!ok) return;
 
-    if (step < TOTAL_STEPS) {
-      setStep((s) => s + 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } else {
-      await completeOnboarding();
-    }
+    setStep((s) => s + 1);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleBack = () => {
@@ -643,6 +658,14 @@ function OnboardingContent() {
             )}
           </CardContent>
         </Card>
+
+        {/* Error message */}
+        {error && (
+          <div className="flex items-start gap-3 mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+            <span>{error}</span>
+          </div>
+        )}
 
         {/* Navigation buttons */}
         <div className="flex items-center justify-between mt-6">
