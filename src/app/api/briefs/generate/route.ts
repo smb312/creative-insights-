@@ -33,7 +33,13 @@ Rules:
 - Never use phrases like "let's dive in", "here's what you need to know", "in conclusion", "overall", or "it's worth noting."
 - Never repeat the same insight in multiple sections.
 
-If no monthly pacing data is provided, skip the Pacing section entirely.`;
+If no monthly pacing data is provided, skip the Pacing section entirely.
+
+If Shopify data is provided alongside Meta data, use the Shopify revenue as the source of truth for revenue metrics. Always show "True ROAS" (Shopify revenue / Meta ad spend) alongside Meta's self-reported ROAS when both are available.
+Comment on the attribution gap between Meta-reported revenue and Shopify actual revenue — this is valuable context. For example: "Meta reports 4.1x ROAS but Shopify shows $38K in actual revenue against $12K spend — a true 3.2x. The 22% gap is typical for view-through attribution."
+Include new vs returning customer breakdown in your analysis when available. If returning customer revenue is high, suggest retention-focused creative. If new customer acquisition cost is high, flag it.
+Reference top-selling products when relevant — e.g., "Your Vitamin C Serum drove 35% of revenue this week but isn't featured in any of your top-performing ads. Test a dedicated creative for it."
+When Shopify data is available, update the Weekly Snapshot table to show Revenue (Shopify), True ROAS, True CPA, Orders (Shopify), and AOV alongside Meta metrics.`;
 
 interface AggregatedMetrics {
   totalSpend: number;
@@ -524,7 +530,100 @@ export async function POST(request: NextRequest) {
       console.warn("Skipping marketing events — table may not exist yet:", eventsError);
     }
 
-    // 12. Build the full data payload string
+    // 12. Fetch Shopify data if connected
+    let shopifyPayload = "";
+    try {
+      const shopifyStore = await prisma.shopifyStore.findUnique({
+        where: { userId },
+      });
+
+      if (shopifyStore && shopifyStore.status === "ACTIVE") {
+        // This week Shopify metrics
+        const thisWeekShopify = await prisma.shopifyDailyMetric.findMany({
+          where: {
+            storeId: shopifyStore.id,
+            date: { gte: thisWeekStart, lte: thisWeekEnd },
+          },
+        });
+
+        // Last week Shopify metrics
+        const lastWeekShopify = await prisma.shopifyDailyMetric.findMany({
+          where: {
+            storeId: shopifyStore.id,
+            date: { gte: lastWeekStart, lte: lastWeekEnd },
+          },
+        });
+
+        // Top products
+        const topProducts = await prisma.shopifyTopProduct.findMany({
+          where: { storeId: shopifyStore.id },
+          orderBy: { totalRevenue: "desc" },
+          take: 5,
+        });
+
+        if (thisWeekShopify.length > 0) {
+          const twRevenue = thisWeekShopify.reduce((s, m) => s + m.totalRevenue, 0);
+          const twOrders = thisWeekShopify.reduce((s, m) => s + m.totalOrders, 0);
+          const twAov = twOrders > 0 ? twRevenue / twOrders : 0;
+          const twNewOrders = thisWeekShopify.reduce((s, m) => s + m.newCustomerOrders, 0);
+          const twReturnOrders = thisWeekShopify.reduce((s, m) => s + m.returningCustomerOrders, 0);
+          const twNewRevenue = thisWeekShopify.reduce((s, m) => s + m.newCustomerRevenue, 0);
+          const twReturnRevenue = thisWeekShopify.reduce((s, m) => s + m.returningCustomerRevenue, 0);
+          const twRefunds = thisWeekShopify.reduce((s, m) => s + m.refundAmount, 0);
+          const twRefundCount = thisWeekShopify.reduce((s, m) => s + m.refundCount, 0);
+
+          const lwRevenue = lastWeekShopify.reduce((s, m) => s + m.totalRevenue, 0);
+          const lwOrders = lastWeekShopify.reduce((s, m) => s + m.totalOrders, 0);
+          const lwAov = lwOrders > 0 ? lwRevenue / lwOrders : 0;
+
+          const trueRoas = thisWeekMetrics.totalSpend > 0 ? twRevenue / thisWeekMetrics.totalSpend : 0;
+          const trueCpa = twOrders > 0 ? thisWeekMetrics.totalSpend / twOrders : 0;
+
+          const attributionGap = thisWeekMetrics.totalConversionValue > 0
+            ? ((thisWeekMetrics.totalConversionValue - twRevenue) / thisWeekMetrics.totalConversionValue) * 100
+            : 0;
+
+          shopifyPayload = `
+
+SHOPIFY DATA (actual store revenue):
+Revenue This Week: ${formatCurrency(twRevenue)}
+Revenue Last Week: ${formatCurrency(lwRevenue)}
+Revenue WoW Change: ${pctChange(twRevenue, lwRevenue)}
+Orders This Week: ${twOrders}
+Orders Last Week: ${lwOrders}
+AOV This Week: ${formatCurrency(twAov)}
+AOV Last Week: ${formatCurrency(lwAov)}
+
+New Customer Orders: ${twNewOrders} (${twOrders > 0 ? ((twNewOrders / twOrders) * 100).toFixed(0) : 0}% of total)
+Returning Customer Orders: ${twReturnOrders} (${twOrders > 0 ? ((twReturnOrders / twOrders) * 100).toFixed(0) : 0}% of total)
+New Customer Revenue: ${formatCurrency(twNewRevenue)}
+Returning Customer Revenue: ${formatCurrency(twReturnRevenue)}
+
+Refund Rate: ${twRevenue > 0 ? ((twRefunds / (twRevenue + twRefunds)) * 100).toFixed(1) : "0.0"}% (${formatCurrency(twRefunds)} refunded, ${twRefundCount} refunds)
+
+BLENDED METRICS (Meta + Shopify):
+True ROAS: ${trueRoas.toFixed(2)}x (Meta self-reports: ${thisWeekMetrics.blendedRoas.toFixed(2)}x)
+True CPA: ${formatCurrency(trueCpa)}
+Attribution Gap: ${attributionGap.toFixed(0)}% (Meta-reported vs Shopify actual)`;
+
+          if (topProducts.length > 0) {
+            shopifyPayload += `
+
+Top ${topProducts.length} Products (last 7 days):
+${topProducts
+  .map(
+    (p, i) =>
+      `${i + 1}. ${p.productTitle} — ${formatCurrency(p.totalRevenue)} revenue, ${p.totalOrders} orders`
+  )
+  .join("\n")}`;
+          }
+        }
+      }
+    } catch (shopifyError) {
+      console.warn("Skipping Shopify data:", shopifyError);
+    }
+
+    // Build the full data payload string
     const dataPayload = `
 BRAND CONTEXT:
 Brand: ${brandProfile.brandName}
@@ -622,7 +721,7 @@ CPM trend: ${trends.cpm}
 30-day total spend: ${formatCurrency(thirtyDayMetrics.totalSpend)}
 30-day conversions: ${thirtyDayMetrics.totalConversions}
 30-day blended ROAS: ${thirtyDayMetrics.blendedRoas.toFixed(2)}x
-${pacingPayload}${marketingEventsPayload}`.trim();
+${pacingPayload}${marketingEventsPayload}${shopifyPayload}`.trim();
 
     // 13. Build the user prompt with format instructions
     const userPrompt = `Here is the performance data for ${brandProfile.brandName}'s weekly brief:

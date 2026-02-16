@@ -398,6 +398,10 @@ export default function DashboardPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{ success: boolean; message: string } | null>(null);
   const [pacing, setPacing] = useState<PacingResult | null>(null);
+  const [shopifyPacing, setShopifyPacing] = useState<{
+    connected: boolean;
+    aov: number | null;
+  }>({ connected: false, aov: null });
 
   const fetchPacing = useCallback(async () => {
     try {
@@ -405,6 +409,10 @@ export default function DashboardPage() {
       if (res.ok) {
         const data = await res.json();
         setPacing(data.pacing ?? null);
+        setShopifyPacing({
+          connected: data.shopifyConnected ?? false,
+          aov: data.shopifyMtdAov ?? null,
+        });
       }
     } catch {
       // non-critical
@@ -634,7 +642,7 @@ export default function DashboardPage() {
       <MarketingTimeline />
 
       {/* Pacing card */}
-      <PacingCard pacing={pacing} onGoToSettings={() => router.push("/dashboard/settings")} />
+      <PacingCard pacing={pacing} shopify={shopifyPacing} onGoToSettings={() => router.push("/dashboard/settings")} />
 
       {/* Brief content */}
       <Card>
@@ -759,9 +767,11 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 function PacingCard({
   pacing,
+  shopify,
   onGoToSettings,
 }: {
   pacing: PacingResult | null;
+  shopify: { connected: boolean; aov: number | null };
   onGoToSettings: () => void;
 }) {
   if (!pacing) {
@@ -816,7 +826,9 @@ function PacingCard({
           {pacing.revenuePacing && (
             <div>
               <div className="mb-1 flex items-center justify-between text-sm">
-                <span className="text-gray-600">Revenue</span>
+                <span className="text-gray-600">
+                  Revenue{shopify.connected && <span className="ml-1 text-xs text-gray-400">(Shopify)</span>}
+                </span>
                 <span className="font-medium text-gray-900">
                   {fmtCurrency(pacing.revenuePacing.actual)} /{" "}
                   {fmtCurrency(pacing.revenuePacing.goal)}{" "}
@@ -880,6 +892,18 @@ function PacingCard({
                   pacing.percentMonthElapsed
                 )}
               />
+            </div>
+          )}
+
+          {/* AOV (Shopify) */}
+          {shopify.connected && shopify.aov != null && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600">
+                AOV <span className="text-xs text-gray-400">(Shopify)</span>
+              </span>
+              <span className="font-medium text-gray-900">
+                {fmtCurrency(shopify.aov)}
+              </span>
             </div>
           )}
 

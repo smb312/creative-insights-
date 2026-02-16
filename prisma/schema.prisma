@@ -26,6 +26,9 @@ model User {
   weeklyBriefs    WeeklyBrief[]
   monthlyTargets  MonthlyTarget[]
   marketingEvents MarketingEvent[]
+  shopifyStore    ShopifyStore?
+  shopifyDailyMetrics  ShopifyDailyMetric[]
+  shopifyTopProducts   ShopifyTopProduct[]
 }
 
 model Account {
@@ -267,6 +270,73 @@ model SyncLog {
   @@index([adAccountId])
 }
 
+// ─── Shopify Store Connection ─────────────────────────
+
+model ShopifyStore {
+  id            String              @id @default(cuid())
+  userId        String              @unique
+  shopDomain    String
+  accessToken   String
+  storeName     String?
+  storeEmail    String?
+  currency      String              @default("USD")
+  status        ShopifyStoreStatus  @default(ACTIVE)
+  installedAt   DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  lastSyncAt    DateTime?
+
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dailyMetrics  ShopifyDailyMetric[]
+  topProducts   ShopifyTopProduct[]
+
+  @@index([userId])
+}
+
+model ShopifyDailyMetric {
+  id                       String   @id @default(cuid())
+  userId                   String
+  storeId                  String
+  date                     DateTime @db.Date
+  totalRevenue             Float    @default(0)
+  totalOrders              Int      @default(0)
+  averageOrderValue        Float    @default(0)
+  newCustomerOrders        Int      @default(0)
+  returningCustomerOrders  Int      @default(0)
+  newCustomerRevenue       Float    @default(0)
+  returningCustomerRevenue Float    @default(0)
+  refundAmount             Float    @default(0)
+  refundCount              Int      @default(0)
+  createdAt                DateTime @default(now())
+
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store ShopifyStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, date])
+  @@index([userId])
+  @@index([storeId, date])
+}
+
+model ShopifyTopProduct {
+  id            String   @id @default(cuid())
+  userId        String
+  storeId       String
+  productId     String
+  productTitle  String
+  productImage  String?
+  variantTitle  String?
+  totalRevenue  Float    @default(0)
+  totalOrders   Int      @default(0)
+  periodStart   DateTime @db.Date
+  periodEnd     DateTime @db.Date
+  createdAt     DateTime @default(now())
+
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store ShopifyStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([storeId, periodStart])
+}
+
 // ─── Enums ────────────────────────────────────────────
 
 enum AdAccountStatus {
@@ -282,4 +352,9 @@ enum SyncStatus {
   IN_PROGRESS
   COMPLETED
   FAILED
+}
+
+enum ShopifyStoreStatus {
+  ACTIVE
+  DISCONNECTED
 }

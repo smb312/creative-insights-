@@ -49,6 +49,39 @@ export async function GET() {
       conversionValue: mtdPerf.reduce((sum, r) => sum + r.conversionValue, 0),
     };
 
+    // Check for Shopify data — use Shopify revenue/orders for pacing if available
+    let shopifyConnected = false;
+    let shopifyMtdAov: number | null = null;
+
+    try {
+      const shopifyStore = await prisma.shopifyStore.findUnique({
+        where: { userId },
+      });
+
+      if (shopifyStore && shopifyStore.status === "ACTIVE") {
+        const shopifyMtd = await prisma.shopifyDailyMetric.findMany({
+          where: {
+            storeId: shopifyStore.id,
+            date: { gte: monthStart, lte: now },
+          },
+          select: { totalRevenue: true, totalOrders: true },
+        });
+
+        if (shopifyMtd.length > 0) {
+          shopifyConnected = true;
+          const shopifyRevenue = shopifyMtd.reduce((s, r) => s + r.totalRevenue, 0);
+          const shopifyOrders = shopifyMtd.reduce((s, r) => s + r.totalOrders, 0);
+          shopifyMtdAov = shopifyOrders > 0 ? shopifyRevenue / shopifyOrders : 0;
+
+          // Override with Shopify actuals for more accurate pacing
+          mtdActuals.conversionValue = shopifyRevenue;
+          mtdActuals.conversions = shopifyOrders;
+        }
+      }
+    } catch {
+      // Shopify data is optional
+    }
+
     const targets: MonthlyTargets = {
       revenueGoal: monthlyTarget.revenueGoal,
       adSpendBudget: monthlyTarget.adSpendBudget,
@@ -60,7 +93,11 @@ export async function GET() {
 
     const pacing = calculatePacing(targets, mtdActuals, now);
 
-    return NextResponse.json({ pacing });
+    return NextResponse.json({
+      pacing,
+      shopifyConnected,
+      shopifyMtdAov,
+    });
   } catch (error) {
     console.error("Error fetching pacing:", error);
     return NextResponse.json(

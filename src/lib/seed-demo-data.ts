@@ -721,7 +721,7 @@ export async function seedDemoData(userId: string) {
         "competitor_analysis",
       ],
       onboardingCompleted: true,
-      onboardingStep: 6,
+      onboardingStep: 7,
     },
     update: {
       brandName: "Luminary Skin Co",
@@ -926,9 +926,128 @@ export async function seedDemoData(userId: string) {
     }
   }
 
+  // 8. Create Shopify demo store and data
+  // Delete existing Shopify data for this user
+  await prisma.shopifyTopProduct.deleteMany({ where: { userId } });
+  await prisma.shopifyDailyMetric.deleteMany({ where: { userId } });
+  await prisma.shopifyStore.deleteMany({ where: { userId } });
+
+  const shopifyStore = await prisma.shopifyStore.create({
+    data: {
+      userId,
+      shopDomain: "luminaryskinco.myshopify.com",
+      accessToken: "demo_shopify_token_not_real",
+      storeName: "Luminary Skin Co",
+      storeEmail: "hello@luminaryskin.co",
+      currency: "USD",
+      status: "ACTIVE",
+      lastSyncAt: now,
+    },
+  });
+
+  // Generate 30 days of Shopify daily metrics
+  for (let day = 0; day < TOTAL_DAYS; day++) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - (TOTAL_DAYS - 1 - day));
+    date.setHours(0, 0, 0, 0);
+
+    const dayOfWeek = date.getDay();
+    const weekendDip =
+      dayOfWeek === 0 || dayOfWeek === 6 ? rand(0.78, 0.92) : rand(0.95, 1.1);
+    const trendMultiplier = 1 + (day / TOTAL_DAYS) * rand(-0.02, 0.05);
+
+    const totalOrders = Math.round(
+      rand(80, 150) * weekendDip * trendMultiplier
+    );
+    const newCustomerPct = rand(0.35, 0.45);
+    const newCustomerOrders = Math.round(totalOrders * newCustomerPct);
+    const returningCustomerOrders = totalOrders - newCustomerOrders;
+
+    // New customers have higher AOV (bundles), returning have lower (replenishment)
+    const newAov = rand(75, 90);
+    const returningAov = rand(55, 70);
+    const newCustomerRevenue = newCustomerOrders * newAov;
+    const returningCustomerRevenue = returningCustomerOrders * returningAov;
+    const totalRevenue = newCustomerRevenue + returningCustomerRevenue;
+    const aov = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+    // Refunds: 2-4% of daily revenue
+    const refundRate = rand(0.02, 0.04);
+    const refundAmount = totalRevenue * refundRate;
+    const refundCount = Math.round(rand(1, 5));
+
+    await prisma.shopifyDailyMetric.upsert({
+      where: { storeId_date: { storeId: shopifyStore.id, date } },
+      create: {
+        userId,
+        storeId: shopifyStore.id,
+        date,
+        totalRevenue: Math.round(totalRevenue * 100) / 100,
+        totalOrders,
+        averageOrderValue: Math.round(aov * 100) / 100,
+        newCustomerOrders,
+        returningCustomerOrders,
+        newCustomerRevenue: Math.round(newCustomerRevenue * 100) / 100,
+        returningCustomerRevenue:
+          Math.round(returningCustomerRevenue * 100) / 100,
+        refundAmount: Math.round(refundAmount * 100) / 100,
+        refundCount,
+      },
+      update: {
+        totalRevenue: Math.round(totalRevenue * 100) / 100,
+        totalOrders,
+        averageOrderValue: Math.round(aov * 100) / 100,
+        newCustomerOrders,
+        returningCustomerOrders,
+        newCustomerRevenue: Math.round(newCustomerRevenue * 100) / 100,
+        returningCustomerRevenue:
+          Math.round(returningCustomerRevenue * 100) / 100,
+        refundAmount: Math.round(refundAmount * 100) / 100,
+        refundCount,
+      },
+    });
+  }
+
+  // Top 10 products (last 7 days)
+  const sevenDaysAgo = new Date(now);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const periodStart = new Date(sevenDaysAgo.toISOString().split("T")[0]);
+  const periodEnd = new Date(now.toISOString().split("T")[0]);
+
+  const topProductsDef = [
+    { title: "Vitamin C Brightening Serum", revenue: 18200, orders: 280 },
+    { title: "Hydrating Night Cream", revenue: 12800, orders: 190 },
+    { title: "Gentle Foaming Cleanser", revenue: 9400, orders: 240 },
+    { title: "Retinol Renewal Complex", revenue: 8600, orders: 120 },
+    { title: "SPF 50 Daily Moisturizer", revenue: 7200, orders: 160 },
+    { title: "The Essentials Bundle", revenue: 6800, orders: 68 },
+    { title: "Rose Hip Recovery Oil", revenue: 4200, orders: 95 },
+    { title: "Exfoliating Toner Pads", revenue: 3800, orders: 110 },
+    { title: "Eye Repair Concentrate", revenue: 3400, orders: 78 },
+    { title: "Travel Mini Set", revenue: 2100, orders: 85 },
+  ];
+
+  for (let i = 0; i < topProductsDef.length; i++) {
+    const prod = topProductsDef[i];
+    await prisma.shopifyTopProduct.create({
+      data: {
+        userId,
+        storeId: shopifyStore.id,
+        productId: `demo_product_${i + 1}`,
+        productTitle: prod.title,
+        totalRevenue: prod.revenue,
+        totalOrders: prod.orders,
+        periodStart,
+        periodEnd,
+      },
+    });
+  }
+
   return {
     adsCreated: adDefs.length,
     daysPerAd: TOTAL_DAYS,
     totalPerformanceRows: adDefs.length * TOTAL_DAYS,
+    shopifyDailyMetrics: TOTAL_DAYS,
+    shopifyTopProducts: topProductsDef.length,
   };
 }

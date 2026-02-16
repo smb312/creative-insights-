@@ -23,7 +23,9 @@ import {
   Database,
 } from "lucide-react";
 import { useMetaOAuthPopup } from "@/hooks/useMetaOAuthPopup";
+import { useShopifyOAuthPopup } from "@/hooks/useShopifyOAuthPopup";
 import { format, startOfMonth, subMonths, addMonths } from "date-fns";
+import { Input } from "@/components/ui/input";
 
 interface AdAccountInfo {
   name: string | null;
@@ -88,6 +90,15 @@ export default function SettingsPage() {
   const [seedingDemo, setSeedingDemo] = useState(false);
   const [seedResult, setSeedResult] = useState<string | null>(null);
 
+  // Shopify state
+  const [shopifyConnected, setShopifyConnected] = useState(false);
+  const [shopifyDomain, setShopifyDomain] = useState("");
+  const [shopifyStoreName, setShopifyStoreName] = useState<string | null>(null);
+  const [shopifyLastSync, setShopifyLastSync] = useState<string | null>(null);
+  const [shopifyDomainInput, setShopifyDomainInput] = useState("");
+  const [disconnectingShopify, setDisconnectingShopify] = useState(false);
+  const [showShopifyDisconnectConfirm, setShowShopifyDisconnectConfirm] = useState(false);
+
   const fetchSettings = useCallback(async () => {
     try {
       setLoading(true);
@@ -99,6 +110,27 @@ export default function SettingsPage() {
       console.error("Error fetching settings:", err);
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const fetchShopifyStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/shopify/status");
+      if (res.ok) {
+        const data = await res.json();
+        setShopifyConnected(data.connected);
+        if (data.store) {
+          setShopifyStoreName(data.store.storeName);
+          setShopifyDomain(data.store.shopDomain);
+          setShopifyLastSync(data.store.lastSyncAt);
+        } else {
+          setShopifyStoreName(null);
+          setShopifyDomain("");
+          setShopifyLastSync(null);
+        }
+      }
+    } catch {
+      // handle silently
     }
   }, []);
 
@@ -188,9 +220,29 @@ export default function SettingsPage() {
   const { connecting: reconnecting, openOAuth: handleReconnectMeta } =
     useMetaOAuthPopup({ onSuccess: fetchSettings });
 
+  /* ---- Shopify OAuth popup ---- */
+  const { connecting: connectingShopify, openOAuth: connectShopify } =
+    useShopifyOAuthPopup({ onSuccess: fetchShopifyStatus });
+
+  const handleDisconnectShopify = async () => {
+    setDisconnectingShopify(true);
+    try {
+      const res = await fetch("/api/shopify/disconnect", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to disconnect");
+      setShowShopifyDisconnectConfirm(false);
+      await fetchShopifyStatus();
+    } catch (err) {
+      console.error("Error disconnecting Shopify:", err);
+      alert("Failed to disconnect Shopify. Please try again.");
+    } finally {
+      setDisconnectingShopify(false);
+    }
+  };
+
   useEffect(() => {
     fetchSettings();
-  }, [fetchSettings]);
+    fetchShopifyStatus();
+  }, [fetchSettings, fetchShopifyStatus]);
 
   useEffect(() => {
     fetchTargets(targetMonth);
@@ -398,6 +450,122 @@ export default function SettingsPage() {
                   <Link2 className="mr-1.5 h-4 w-4" />
                   Connect Meta
                 </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Shopify Connection */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Link2 className="h-5 w-5 text-gray-600" />
+              <CardTitle>Shopify Connection</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {shopifyConnected ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {shopifyStoreName || shopifyDomain}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      {shopifyDomain}
+                    </p>
+                    {shopifyLastSync && (
+                      <p className="mt-0.5 text-xs text-gray-500">
+                        Last synced:{" "}
+                        {format(
+                          new Date(shopifyLastSync),
+                          "MMM d, yyyy 'at' h:mm a"
+                        )}
+                      </p>
+                    )}
+                  </div>
+                  <Badge variant="success">Connected</Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    loading={connectingShopify}
+                    onClick={() => connectShopify(shopifyDomain)}
+                  >
+                    <ExternalLink className="mr-1.5 h-4 w-4" />
+                    Reconnect
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowShopifyDisconnectConfirm(true)}
+                  >
+                    <Link2 className="mr-1.5 h-4 w-4" />
+                    Disconnect
+                  </Button>
+                </div>
+
+                {/* Disconnect confirmation */}
+                {showShopifyDisconnectConfirm && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                      <div className="space-y-3">
+                        <p className="text-sm text-red-700">
+                          Are you sure? Shopify revenue data will no longer appear in your briefs.
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            loading={disconnectingShopify}
+                            onClick={handleDisconnectShopify}
+                          >
+                            Yes, Disconnect
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={disconnectingShopify}
+                            onClick={() => setShowShopifyDisconnectConfirm(false)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                  No store connected
+                </div>
+                <p className="text-xs text-gray-500">
+                  Connect for true revenue data, order metrics, and product insights.
+                </p>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="text"
+                    placeholder="mystore.myshopify.com"
+                    value={shopifyDomainInput}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setShopifyDomainInput(e.target.value)}
+                    className="max-w-xs"
+                  />
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    loading={connectingShopify}
+                    disabled={!shopifyDomainInput.trim()}
+                    onClick={() => connectShopify(shopifyDomainInput)}
+                  >
+                    <Link2 className="mr-1.5 h-4 w-4" />
+                    Connect Shopify
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>

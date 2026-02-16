@@ -334,10 +334,35 @@ export async function POST() {
       data: { lastSyncAt: new Date() },
     });
 
+    // 13. Also sync Shopify data if connected
+    let shopifySynced = false;
+    try {
+      const shopifyStore = await prisma.shopifyStore.findUnique({
+        where: { userId },
+      });
+      if (shopifyStore && shopifyStore.status === "ACTIVE") {
+        // Trigger Shopify sync via internal fetch
+        const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+        await fetch(`${baseUrl}/api/shopify/sync`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            cookie: `next-auth.session-token=internal`,
+          },
+        }).catch(() => {
+          // Shopify sync failure is non-blocking
+        });
+        shopifySynced = true;
+      }
+    } catch {
+      // Shopify sync failure is non-blocking
+    }
+
     return NextResponse.json({
       success: true,
       totalAdsProcessed,
       totalAdsFailed,
+      shopifySynced,
     });
   } catch (error) {
     console.error("Sync failed:", error);

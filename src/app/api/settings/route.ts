@@ -9,8 +9,8 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Fetch the user's active ad account and brand profile in parallel
-    const [adAccount, profile] = await Promise.all([
+    // Fetch the user's active ad account, brand profile, and Shopify store in parallel
+    const [adAccount, profile, shopifyStore] = await Promise.all([
       prisma.adAccount.findFirst({
         where: { userId, status: "ACTIVE" },
         select: {
@@ -27,6 +27,15 @@ export async function GET() {
           industry: true,
           monthlyRevenueRange: true,
           briefsPaused: true,
+        },
+      }),
+      prisma.shopifyStore.findUnique({
+        where: { userId },
+        select: {
+          shopDomain: true,
+          storeName: true,
+          status: true,
+          lastSyncAt: true,
         },
       }),
     ]);
@@ -47,6 +56,14 @@ export async function GET() {
             briefsPaused: profile.briefsPaused,
           }
         : null,
+      shopifyStore:
+        shopifyStore && shopifyStore.status === "ACTIVE"
+          ? {
+              shopDomain: shopifyStore.shopDomain,
+              storeName: shopifyStore.storeName,
+              lastSyncAt: shopifyStore.lastSyncAt?.toISOString() ?? null,
+            }
+          : null,
     });
   } catch (error) {
     console.error("Settings GET error:", error);

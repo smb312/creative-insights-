@@ -18,6 +18,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useMetaOAuthPopup } from "@/hooks/useMetaOAuthPopup";
+import { useShopifyOAuthPopup } from "@/hooks/useShopifyOAuthPopup";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -146,7 +147,7 @@ function mapFormToProfile(data: OnboardingData): Record<string, unknown> {
   };
 }
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 7;
 
 const STEP_LABELS = [
   "About Your Brand",
@@ -154,6 +155,7 @@ const STEP_LABELS = [
   "Your Marketing",
   "Competitors & Goals",
   "Monthly Targets",
+  "Connect Shopify",
   "Connect Meta",
 ];
 
@@ -287,6 +289,12 @@ function OnboardingContent() {
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [selectingAccount, setSelectingAccount] = useState<string | null>(null);
 
+  // Shopify
+  const [shopifyConnected, setShopifyConnected] = useState(false);
+  const [shopifyDomain, setShopifyDomain] = useState("");
+  const [shopifyStoreName, setShopifyStoreName] = useState<string | null>(null);
+  const [loadingShopify, setLoadingShopify] = useState(false);
+
   /* ---- Load existing data on mount ---- */
   useEffect(() => {
     async function loadData() {
@@ -307,10 +315,10 @@ function OnboardingContent() {
     loadData();
   }, []);
 
-  /* ---- If returning from Meta OAuth (fallback for non-popup), jump to step 6 ---- */
+  /* ---- If returning from Meta OAuth (fallback for non-popup), jump to step 7 ---- */
   useEffect(() => {
     if (searchParams.get("selectAccount") === "true") {
-      setStep(6);
+      setStep(7);
     }
   }, [searchParams]);
 
@@ -368,6 +376,37 @@ function OnboardingContent() {
     }
   }, [router, metaAccounts]);
 
+  /* ---- Fetch Shopify status ---- */
+  const fetchShopifyStatus = useCallback(async () => {
+    setLoadingShopify(true);
+    try {
+      const res = await fetch("/api/shopify/status");
+      if (res.ok) {
+        const data = await res.json();
+        setShopifyConnected(data.connected);
+        if (data.store) {
+          setShopifyStoreName(data.store.storeName);
+          setShopifyDomain(data.store.shopDomain);
+        }
+      }
+    } catch {
+      // handle silently
+    } finally {
+      setLoadingShopify(false);
+    }
+  }, []);
+
+  /* ---- Load Shopify status when step 6 is reached ---- */
+  useEffect(() => {
+    if (step === 6) {
+      fetchShopifyStatus();
+    }
+  }, [step, fetchShopifyStatus]);
+
+  /* ---- Connect Shopify OAuth (popup) ---- */
+  const { connecting: connectingShopify, openOAuth: connectShopify } =
+    useShopifyOAuthPopup({ onSuccess: fetchShopifyStatus });
+
   /* ---- Fetch Meta ad accounts ---- */
   const fetchMetaAccounts = useCallback(async () => {
     setLoadingAccounts(true);
@@ -386,7 +425,7 @@ function OnboardingContent() {
 
   /* ---- Load accounts when step 6 is reached ---- */
   useEffect(() => {
-    if (step === 6) {
+    if (step === 7) {
       fetchMetaAccounts();
     }
   }, [step, fetchMetaAccounts]);
@@ -449,7 +488,7 @@ function OnboardingContent() {
     }
 
     // On the final step, skip the redundant saveStep and go straight to completion.
-    // Step 6 (Connect Meta) has no form fields to save.
+    // Step 7 (Connect Meta) has no form fields to save.
     if (step === TOTAL_STEPS) {
       await completeOnboarding();
       return;
@@ -646,7 +685,18 @@ function OnboardingContent() {
               />
             )}
             {step === 6 && (
-              <Step6Meta
+              <Step6Shopify
+                connected={shopifyConnected}
+                storeName={shopifyStoreName}
+                domain={shopifyDomain}
+                setDomain={setShopifyDomain}
+                connecting={connectingShopify}
+                loading={loadingShopify}
+                onConnect={() => connectShopify(shopifyDomain)}
+              />
+            )}
+            {step === 7 && (
+              <Step7Meta
                 activeAccount={activeAccount ?? null}
                 pendingAccounts={pendingAccounts}
                 loadingAccounts={loadingAccounts}
@@ -687,6 +737,17 @@ function OnboardingContent() {
                 }}
               >
                 Skip — I&apos;ll add these later
+              </Button>
+            )}
+            {step === 6 && !shopifyConnected && (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setStep(7);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+              >
+                Skip for now
               </Button>
             )}
             <Button
@@ -1207,10 +1268,116 @@ function Step5Targets({
 }
 
 /* ------------------------------------------------------------------ */
-/*  Step 6 — Connect Meta                                              */
+/*  Step 6 — Connect Shopify (Optional)                                */
 /* ------------------------------------------------------------------ */
 
-function Step6Meta({
+function Step6Shopify({
+  connected,
+  storeName,
+  domain,
+  setDomain,
+  connecting,
+  loading,
+  onConnect,
+}: {
+  connected: boolean;
+  storeName: string | null;
+  domain: string;
+  setDomain: (v: string) => void;
+  connecting: boolean;
+  loading: boolean;
+  onConnect: () => void;
+}) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-1">
+          Connect Shopify
+          <span className="ml-2 text-sm font-normal text-gray-400">(Optional)</span>
+        </h2>
+        <p className="text-sm text-gray-500">
+          Connect your Shopify store for true revenue data in your weekly brief.
+        </p>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-8 text-gray-500">
+          <Loader2 className="h-5 w-5 animate-spin mr-2" />
+          Checking connection...
+        </div>
+      ) : connected ? (
+        <div className="flex items-center gap-3 p-4 rounded-lg bg-green-50 border border-green-200">
+          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+            <Check className="h-5 w-5 text-green-600" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-gray-900">
+              Connected: {storeName || domain}
+            </p>
+            <p className="text-xs text-gray-500">{domain}</p>
+          </div>
+          <Badge variant="success">Connected</Badge>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-700">
+              Your Shopify store URL
+            </label>
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                placeholder="mystore.myshopify.com"
+                value={domain}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDomain(e.target.value)}
+                className="flex-1"
+              />
+            </div>
+          </div>
+
+          <div className="text-center">
+            <Button
+              variant="primary"
+              size="lg"
+              onClick={onConnect}
+              loading={connecting}
+              disabled={!domain.trim()}
+              className="w-full sm:w-auto"
+            >
+              Connect Shopify Store
+            </Button>
+          </div>
+        </>
+      )}
+
+      {/* Security note */}
+      <div className="flex items-start gap-3 p-4 rounded-lg bg-gray-50 border border-gray-200">
+        <Shield className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+        <div className="text-sm text-gray-600">
+          <p className="font-medium text-gray-900 mb-1">View-only access</p>
+          <p>
+            We only request read access to your orders and products. We never
+            modify your store, orders, products, or any settings.
+          </p>
+        </div>
+      </div>
+
+      {!connected && (
+        <div className="text-center pt-2">
+          <p className="text-xs text-gray-400">
+            You can connect Shopify later from Settings.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Step 7 — Connect Meta                                              */
+/* ------------------------------------------------------------------ */
+
+function Step7Meta({
   activeAccount,
   pendingAccounts,
   loadingAccounts,
