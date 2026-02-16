@@ -339,7 +339,7 @@ function OnboardingContent() {
       const res = await fetch("/api/onboarding", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...mapFormToProfile(data), onboardingCompleted: true }),
+        body: JSON.stringify({ onboardingCompleted: true }),
       });
       if (res.ok) {
         // Trigger initial data sync in the background if a Meta account is connected
@@ -366,7 +366,7 @@ function OnboardingContent() {
     } finally {
       setSaving(false);
     }
-  }, [data, router, metaAccounts]);
+  }, [router, metaAccounts]);
 
   /* ---- Fetch Meta ad accounts ---- */
   const fetchMetaAccounts = useCallback(async () => {
