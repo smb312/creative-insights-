@@ -59,6 +59,7 @@ type FlowStep =
   | { type: "welcome" }
   | { type: "transition"; transitionKey: string }
   | { type: "question"; questionIndex: number }
+  | { type: "review" }
   | { type: "platform"; platformIndex: number }
   | { type: "assets" }
   | { type: "done" };
@@ -153,6 +154,7 @@ interface OnboardingFormProps {
   questions: FormQuestion[];
   initialResponses: Record<string, string>;
   initialPlatformAccess: PlatformAccessData[];
+  isCompleted?: boolean;
 }
 
 export function OnboardingForm({
@@ -161,6 +163,7 @@ export function OnboardingForm({
   questions,
   initialResponses,
   initialPlatformAccess,
+  isCompleted = false,
 }: OnboardingFormProps) {
   // Build the ordered question list from database questions
   const perfQuestions = useMemo(
@@ -215,21 +218,24 @@ export function OnboardingForm({
       steps.push({ type: "question", questionIndex: i });
     }
 
-    // 6. Transition before account access
+    // 6. Review screen (before account access)
+    steps.push({ type: "review" });
+
+    // 7. Transition before account access
     steps.push({ type: "transition", transitionKey: "before-access" });
 
-    // 7. Platform access screens (5 platforms)
+    // 8. Platform access screens (5 platforms)
     for (let i = 0; i < PLATFORMS.length; i++) {
       steps.push({ type: "platform", platformIndex: i });
     }
 
-    // 8. Transition before assets
+    // 9. Transition before assets
     steps.push({ type: "transition", transitionKey: "before-assets" });
 
-    // 9. Asset upload
+    // 10. Asset upload
     steps.push({ type: "assets" });
 
-    // 10. Done
+    // 11. Done
     steps.push({ type: "done" });
 
     return steps;
@@ -240,7 +246,8 @@ export function OnboardingForm({
   const [answers, setAnswers] = useState<Record<string, string>>(initialResponses);
   const [direction, setDirection] = useState<"forward" | "backward">("forward");
   const [saving, setSaving] = useState(false);
-  const [completed, setCompleted] = useState(false);
+  const [showCompletedScreen, setShowCompletedScreen] = useState(isCompleted);
+  const [reviewMode, setReviewMode] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Platform access state
@@ -280,6 +287,12 @@ export function OnboardingForm({
     }
   }, [currentStepIndex, currentQuestion]);
 
+  // Review step index
+  const reviewStepIndex = useMemo(
+    () => flowSteps.findIndex((s) => s.type === "review"),
+    [flowSteps]
+  );
+
   // ---------- Progress calculation ----------
 
   const progress = useMemo(() => {
@@ -316,15 +329,17 @@ export function OnboardingForm({
     const hasAnyAssets = Object.values(uploadedFiles).some((files) => files.length > 0);
     if (hasAnyAssets) completedWeight += 25;
 
-    // But also factor in where we are in the flow
-    const flowProgress = (currentStepIndex / (flowSteps.length - 1)) * 100;
-
-    // Use the higher of content-based or flow-based progress
-    return Math.round(Math.max(completedWeight, flowProgress * 0.9));
+    return Math.round(completedWeight);
   }, [
     ALL_QUESTIONS, answers, PERF_COUNT, TOTAL_QUESTIONS, platformData,
-    uploadedFiles, currentStepIndex, flowSteps.length,
+    uploadedFiles,
   ]);
+
+  // Count of answered questions (for display)
+  const answeredCount = useMemo(
+    () => ALL_QUESTIONS.filter((q) => answers[q.key]?.trim()).length,
+    [ALL_QUESTIONS, answers]
+  );
 
   // ---------- Navigation ----------
 
@@ -346,7 +361,7 @@ export function OnboardingForm({
   );
 
   const goNext = useCallback(async () => {
-    // Save current answer if on a question
+    // Save current answer if on a question and non-empty
     if (currentQuestion && currentAnswer.trim()) {
       setAnswers((prev) => ({ ...prev, [currentQuestion.key]: currentAnswer }));
       await saveAnswer(currentQuestion.key, currentAnswer);
@@ -361,10 +376,64 @@ export function OnboardingForm({
     setCurrentStepIndex((prev) => Math.max(prev - 1, 0));
   }, [currentStepIndex]);
 
+  const skipQuestion = useCallback(() => {
+    // Advance without saving anything
+    setDirection("forward");
+    setCurrentStepIndex((prev) => Math.min(prev + 1, flowSteps.length - 1));
+  }, [flowSteps.length]);
+
+  const jumpToQuestion = useCallback(
+    async (questionIndex: number) => {
+      // Save current answer if on a question and non-empty
+      if (currentQuestion && currentAnswer.trim()) {
+        await saveAnswer(currentQuestion.key, currentAnswer);
+      }
+      const stepIndex = flowSteps.findIndex(
+        (s) => s.type === "question" && s.questionIndex === questionIndex
+      );
+      if (stepIndex >= 0) {
+        setDirection(stepIndex > currentStepIndex ? "forward" : "backward");
+        setCurrentStepIndex(stepIndex);
+      }
+    },
+    [flowSteps, currentStepIndex, currentQuestion, currentAnswer, saveAnswer]
+  );
+
+  const editFromReview = useCallback(
+    (questionIndex: number) => {
+      setReviewMode(true);
+      const stepIndex = flowSteps.findIndex(
+        (s) => s.type === "question" && s.questionIndex === questionIndex
+      );
+      if (stepIndex >= 0) {
+        setDirection("backward");
+        setCurrentStepIndex(stepIndex);
+      }
+    },
+    [flowSteps]
+  );
+
+  const backToReview = useCallback(async () => {
+    // Save current answer if non-empty
+    if (currentQuestion && currentAnswer.trim()) {
+      setAnswers((prev) => ({ ...prev, [currentQuestion.key]: currentAnswer }));
+      await saveAnswer(currentQuestion.key, currentAnswer);
+    }
+    setReviewMode(false);
+    setDirection("forward");
+    setCurrentStepIndex(reviewStepIndex);
+  }, [currentQuestion, currentAnswer, saveAnswer, reviewStepIndex]);
+
+  const goToReview = useCallback(() => {
+    setShowCompletedScreen(false);
+    setDirection("backward");
+    setCurrentStepIndex(reviewStepIndex);
+  }, [reviewStepIndex]);
+
   const handleComplete = useCallback(async () => {
     setSaving(true);
     await markOnboardingComplete(clientId);
-    setCompleted(true);
+    setShowCompletedScreen(true);
     setSaving(false);
   }, [clientId]);
 
@@ -380,17 +449,29 @@ export function OnboardingForm({
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        goNext();
+        if (reviewMode) {
+          backToReview();
+        } else {
+          goNext();
+        }
       }
       if (e.key === "Escape") {
         e.preventDefault();
-        goBack();
+        if (reviewMode) {
+          backToReview();
+        } else {
+          goBack();
+        }
       }
       if (e.key === "Backspace" && currentAnswer === "") {
-        goBack();
+        if (reviewMode) {
+          backToReview();
+        } else {
+          goBack();
+        }
       }
     },
-    [goNext, goBack, currentAnswer]
+    [goNext, goBack, backToReview, reviewMode, currentAnswer]
   );
 
   // ---------- Platform access save ----------
@@ -489,46 +570,285 @@ export function OnboardingForm({
       </div>
       {currentStep?.type !== "welcome" && (
         <span className="text-xs font-medium text-gray-400 tabular-nums whitespace-nowrap py-2">
-          {progress}%
+          {answeredCount}/{TOTAL_QUESTIONS} answered
         </span>
       )}
     </div>
   );
 
-  const renderHeader = () => (
-    <header className="fixed left-0 right-0 top-[12px] z-40 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
-      <button
-        onClick={goBack}
-        className={`flex h-10 w-10 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 ${
-          currentStepIndex === 0 ? "invisible" : ""
-        }`}
-        aria-label="Go back"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M19 12H5M12 19l-7-7 7-7" />
-        </svg>
-      </button>
-      <span className="text-2xl font-bold tracking-tight text-[#0066FF]">
-        Coast Digital
-      </span>
-      <div className="flex items-center gap-3">
-        {currentQuestion && (
-          <span className="text-sm font-medium text-gray-400 tabular-nums">
-            {currentQuestion.number} / {TOTAL_QUESTIONS}
-          </span>
-        )}
-        <div className="flex h-10 w-10 items-center justify-center">
-          {saving && (
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-200 border-t-[#0066FF]" />
+  const renderHeader = () => {
+    // Determine which question number to display
+    let displayQuestionNumber: number | null = null;
+    if (currentStep?.type === "question") {
+      displayQuestionNumber = ALL_QUESTIONS[currentStep.questionIndex]?.number ?? null;
+    }
+
+    return (
+      <header className="fixed left-0 right-0 top-[12px] z-40 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
+        <button
+          onClick={reviewMode ? backToReview : goBack}
+          className={`flex h-10 w-10 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 ${
+            currentStepIndex === 0 && !reviewMode ? "invisible" : ""
+          }`}
+          aria-label={reviewMode ? "Back to review" : "Go back"}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <span className="text-2xl font-bold tracking-tight text-[#0066FF]">
+          Coast Digital
+        </span>
+        <div className="flex items-center gap-3">
+          {displayQuestionNumber !== null && (
+            <span className="text-sm font-medium text-gray-400 tabular-nums">
+              {displayQuestionNumber} / {TOTAL_QUESTIONS}
+            </span>
           )}
+          <div className="flex h-10 w-10 items-center justify-center">
+            {saving && (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-200 border-t-[#0066FF]" />
+            )}
+          </div>
+        </div>
+      </header>
+    );
+  };
+
+  // ---------- Desktop sidebar ----------
+
+  const renderSidebar = () => {
+    const isQuestionStep = currentStep?.type === "question" || currentStep?.type === "review";
+
+    return (
+      <nav
+        className={`hidden md:flex fixed left-0 top-[72px] bottom-0 w-16 flex-col items-center overflow-y-auto py-4 bg-white/90 backdrop-blur-sm border-r border-gray-100 z-30 transition-opacity duration-300 ${
+          isQuestionStep ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+      >
+        {/* Performance section */}
+        {PERF_COUNT > 0 && (
+          <>
+            <span className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-gray-300">
+              Perf
+            </span>
+            {ALL_QUESTIONS.filter((q) => q.section === "performance").map((q) => {
+              const qIdx = q.number - 1;
+              const isAnswered = !!answers[q.key]?.trim();
+              const isCurrent =
+                currentStep?.type === "question" && currentStep.questionIndex === qIdx;
+              return (
+                <button
+                  key={q.key}
+                  onClick={() => jumpToQuestion(qIdx)}
+                  className={`group relative my-0.5 flex h-7 w-10 items-center justify-center rounded-md text-xs font-medium transition-all ${
+                    isCurrent
+                      ? "bg-[#0066FF] text-white shadow-sm"
+                      : isAnswered
+                      ? "text-[#0066FF] hover:bg-blue-50"
+                      : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+                  }`}
+                  title={`Q${q.number}: ${q.text.slice(0, 60)}`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        isCurrent
+                          ? "bg-white"
+                          : isAnswered
+                          ? "bg-[#0066FF]"
+                          : "border border-gray-300"
+                      }`}
+                    />
+                    {q.number}
+                  </span>
+                </button>
+              );
+            })}
+          </>
+        )}
+
+        {/* Divider */}
+        {PERF_COUNT > 0 && TOTAL_QUESTIONS - PERF_COUNT > 0 && (
+          <div className="my-2 h-px w-6 bg-gray-200" />
+        )}
+
+        {/* Creative section */}
+        {TOTAL_QUESTIONS - PERF_COUNT > 0 && (
+          <>
+            <span className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-gray-300">
+              Creative
+            </span>
+            {ALL_QUESTIONS.filter((q) => q.section === "creative").map((q) => {
+              const qIdx = q.number - 1;
+              const isAnswered = !!answers[q.key]?.trim();
+              const isCurrent =
+                currentStep?.type === "question" && currentStep.questionIndex === qIdx;
+              return (
+                <button
+                  key={q.key}
+                  onClick={() => jumpToQuestion(qIdx)}
+                  className={`group relative my-0.5 flex h-7 w-10 items-center justify-center rounded-md text-xs font-medium transition-all ${
+                    isCurrent
+                      ? "bg-[#0066FF] text-white shadow-sm"
+                      : isAnswered
+                      ? "text-[#0066FF] hover:bg-blue-50"
+                      : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+                  }`}
+                  title={`Q${q.number}: ${q.text.slice(0, 60)}`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        isCurrent
+                          ? "bg-white"
+                          : isAnswered
+                          ? "bg-[#0066FF]"
+                          : "border border-gray-300"
+                      }`}
+                    />
+                    {q.number}
+                  </span>
+                </button>
+              );
+            })}
+          </>
+        )}
+      </nav>
+    );
+  };
+
+  // ---------- Mobile bottom navigation ----------
+
+  const renderMobileNav = () => {
+    const showNav = currentStep?.type === "question" || currentStep?.type === "review";
+    if (!showNav) return null;
+
+    return (
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-40 flex items-center justify-between gap-3">
+        <button
+          onClick={reviewMode ? backToReview : goBack}
+          disabled={currentStepIndex === 0 && !reviewMode}
+          className="flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-100 disabled:opacity-30"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+          Prev
+        </button>
+
+        {/* Jump to question dropdown */}
+        <select
+          value={currentStep?.type === "question" ? currentStep.questionIndex : ""}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val !== "") jumpToQuestion(Number(val));
+          }}
+          className="flex-1 max-w-[160px] rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm text-gray-600 focus:border-[#0066FF] focus:outline-none focus:ring-1 focus:ring-[#0066FF]/20"
+        >
+          <option value="" disabled>
+            Jump to question...
+          </option>
+          {ALL_QUESTIONS.map((q) => (
+            <option key={q.key} value={q.number - 1}>
+              Q{q.number}
+              {answers[q.key]?.trim() ? " \u2713" : ""}
+            </option>
+          ))}
+        </select>
+
+        <button
+          onClick={goNext}
+          className="flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-100"
+        >
+          Next
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+    );
+  };
+
+  // ---------- Review screen ----------
+
+  const renderReviewScreen = () => {
+    const sections: { key: "performance" | "creative"; label: string }[] = [
+      { key: "performance", label: "Performance" },
+      { key: "creative", label: "Creative" },
+    ];
+
+    return (
+      <div className="space-y-8">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl">
+            Review your answers
+          </h1>
+          <p className="mt-3 text-lg text-gray-500">
+            Everything looks good? You can edit any answer before continuing.
+          </p>
+        </div>
+
+        {sections.map(({ key, label }) => {
+          const sectionQuestions = ALL_QUESTIONS.filter((q) => q.section === key);
+          if (sectionQuestions.length === 0) return null;
+          return (
+            <div key={key}>
+              <h3 className="mb-4 text-lg font-semibold text-gray-900">{label}</h3>
+              <div className="space-y-3">
+                {sectionQuestions.map((q) => {
+                  const answer = answers[q.key]?.trim();
+                  return (
+                    <div
+                      key={q.key}
+                      className="flex items-start justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-gray-400">
+                          Q{q.number}
+                        </p>
+                        <p className="mt-0.5 text-sm font-medium text-gray-900">
+                          {q.text}
+                        </p>
+                        {answer ? (
+                          <p className="mt-1.5 text-sm text-gray-600 whitespace-pre-wrap">
+                            {answer}
+                          </p>
+                        ) : (
+                          <p className="mt-1.5 text-sm italic text-gray-400">
+                            Skipped
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => editFromReview(q.number - 1)}
+                        className="ml-4 flex-shrink-0 text-sm font-medium text-[#0066FF] hover:text-[#0052cc] transition-colors"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+
+        <div className="flex justify-center pt-4">
+          <button
+            onClick={goNext}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#0066FF] px-10 py-4 text-lg font-semibold text-white transition-colors hover:bg-[#0052cc]"
+          >
+            Looks good, continue &rarr;
+          </button>
         </div>
       </div>
-    </header>
-  );
+    );
+  };
 
-  // ---------- Completion screen (after final submit) ----------
+  // ---------- Completion screen ----------
 
-  if (completed) {
+  if (showCompletedScreen) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="text-center max-w-md px-6 animate-slide-up">
@@ -536,10 +856,19 @@ export function OnboardingForm({
           <h1 className="mb-6 text-4xl font-bold text-gray-900">
             You&apos;re all set!
           </h1>
-          <p className="text-lg text-gray-500 leading-relaxed">
+          <p className="mb-10 text-lg text-gray-500 leading-relaxed">
             Thanks for completing your onboarding. The Coast Digital team will
             review everything and be in touch within 24 hours.
           </p>
+          <button
+            onClick={goToReview}
+            className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-base font-semibold text-[#0066FF] shadow-sm ring-1 ring-gray-200 transition-all hover:bg-gray-50 hover:ring-gray-300"
+          >
+            Review or update your answers
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
       </div>
     );
@@ -547,12 +876,20 @@ export function OnboardingForm({
 
   // ---------- Main render ----------
 
+  const isQuestionOrReview = currentStep?.type === "question" || currentStep?.type === "review";
+
   return (
     <div className="relative flex min-h-screen flex-col bg-gray-50">
       {renderProgressBar()}
       {renderHeader()}
+      {renderSidebar()}
+      {renderMobileNav()}
 
-      <main className="flex flex-1 items-center justify-center px-6 pt-32 pb-24">
+      <main
+        className={`flex flex-1 items-center justify-center px-6 pt-32 pb-24 ${
+          isQuestionOrReview ? "md:pl-20" : ""
+        } ${currentStep?.type === "question" || currentStep?.type === "review" ? "pb-20 md:pb-24" : ""}`}
+      >
         <div
           key={currentStepIndex}
           className={`w-full max-w-[640px] ${
@@ -625,25 +962,51 @@ export function OnboardingForm({
                 rows={4}
                 className="w-full resize-none rounded-xl border border-gray-200 bg-white px-5 py-4 text-lg text-gray-900 placeholder:text-gray-300 focus:border-[#0066FF] focus:outline-none focus:ring-2 focus:ring-[#0066FF]/20 transition-all"
               />
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={goNext}
-                  className="inline-flex items-center gap-2 rounded-lg bg-[#0066FF] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#0052cc]"
-                >
-                  OK
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M5 12h14M12 5l7 7-7 7" />
-                  </svg>
-                </button>
-                <span className="text-xs text-gray-300">
-                  or press{" "}
-                  <kbd className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-400">
-                    Enter ↵
-                  </kbd>
-                </span>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-4">
+                  {reviewMode ? (
+                    <button
+                      onClick={backToReview}
+                      className="inline-flex items-center gap-2 rounded-lg bg-[#0066FF] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#0052cc]"
+                    >
+                      Back to review
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 12h14M12 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={goNext}
+                      className="inline-flex items-center gap-2 rounded-lg bg-[#0066FF] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#0052cc]"
+                    >
+                      OK
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 12h14M12 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  )}
+                  <span className="text-xs text-gray-300">
+                    or press{" "}
+                    <kbd className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-400">
+                      Enter ↵
+                    </kbd>
+                  </span>
+                </div>
+                {/* Skip button */}
+                {!reviewMode && (
+                  <button
+                    onClick={skipQuestion}
+                    className="self-start text-sm text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    Skip
+                  </button>
+                )}
               </div>
             </div>
           )}
+
+          {/* Review screen */}
+          {currentStep?.type === "review" && renderReviewScreen()}
 
           {/* Platform access screens */}
           {currentStep?.type === "platform" && (

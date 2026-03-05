@@ -32,24 +32,6 @@ export default async function PublicOnboardingPage({
     );
   }
 
-  // Already completed
-  if (client.onboarding_completed_at) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-white">
-        <div className="text-center max-w-md">
-          <div className="mb-6 text-5xl">&#127881;</div>
-          <h1 className="mb-3 text-3xl font-bold text-gray-900">
-            You&apos;re all done!
-          </h1>
-          <p className="text-lg text-gray-500">
-            Thanks for completing the onboarding questionnaire. The Coast
-            Digital team will be in touch shortly.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   // Fetch questions, existing responses, and platform access in parallel
   const [responsesRes, questionsRes, platformRes] = await Promise.all([
     supabase
@@ -90,6 +72,7 @@ export default async function PublicOnboardingPage({
       questions={questionsRes.data || []}
       initialResponses={responseMap}
       initialPlatformAccess={platformAccess}
+      isCompleted={!!client.onboarding_completed_at}
     />
   );
 }
