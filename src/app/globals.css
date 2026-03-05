@@ -1,15 +1,6 @@
-@import "tailwindcss";
-
-@theme {
-  --font-serif: "DM Serif Display", "Georgia", serif;
-  --font-sans: "DM Sans", "Helvetica Neue", sans-serif;
-  --color-navy: #0f172a;
-  --color-navy-light: #1e293b;
-  --color-accent: #c2410c;
-  --color-accent-hover: #9a3412;
-  --color-warm-bg: #fafaf8;
-  --color-warm-gray: #f5f5f0;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --background: #ffffff;
@@ -17,52 +8,27 @@
 }
 
 body {
-  background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans);
+  background: var(--background);
 }
 
-/* Smooth scroll */
-html {
-  scroll-behavior: smooth;
-}
-
-/* Fade in up animation */
-@keyframes fadeInUp {
+@keyframes slide-in-from-bottom-5 {
   from {
+    transform: translateY(1.25rem);
     opacity: 0;
-    transform: translateY(20px);
   }
   to {
-    opacity: 1;
     transform: translateY(0);
+    opacity: 1;
   }
 }
 
-.animate-fade-in-up {
-  animation: fadeInUp 0.6s ease-out forwards;
+.animate-in {
+  animation-duration: 200ms;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
 }
 
-.animate-fade-in-up-delay-1 {
-  animation: fadeInUp 0.6s ease-out 0.1s forwards;
-  opacity: 0;
-}
-
-.animate-fade-in-up-delay-2 {
-  animation: fadeInUp 0.6s ease-out 0.2s forwards;
-  opacity: 0;
-}
-
-.animate-fade-in-up-delay-3 {
-  animation: fadeInUp 0.6s ease-out 0.3s forwards;
-  opacity: 0;
-}
-
-/* FAQ details marker removal */
-details summary::-webkit-details-marker {
-  display: none;
-}
-
-details summary {
-  list-style: none;
+.slide-in-from-bottom-5 {
+  animation-name: slide-in-from-bottom-5;
 }
