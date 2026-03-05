@@ -207,10 +207,10 @@ export function OnboardingForm({
   // Completion screen (after submit)
   if (completed || (isComplete && completed)) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-white">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="text-center max-w-md px-6">
-          <div className="mb-6 text-5xl">&#127881;</div>
-          <h1 className="mb-4 text-3xl font-bold text-gray-900">
+          <div className="mb-8 text-6xl">&#127881;</div>
+          <h1 className="mb-6 text-4xl font-bold text-gray-900">
             You&apos;re all set!
           </h1>
           <p className="text-lg text-gray-500 leading-relaxed">
@@ -223,17 +223,24 @@ export function OnboardingForm({
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-white">
-      {/* Progress bar */}
-      <div className="fixed left-0 right-0 top-0 z-50 h-1 bg-gray-100">
-        <div
-          className="h-full bg-[#0066FF] transition-all duration-500 ease-out"
-          style={{ width: `${progress}%` }}
-        />
+    <div className="relative flex min-h-screen flex-col bg-gray-50">
+      {/* Progress bar — thicker with percentage label */}
+      <div className="fixed left-0 right-0 top-0 z-50 flex items-center gap-3 bg-white px-4">
+        <div className="h-1 flex-1 rounded-full bg-gray-100">
+          <div
+            className="h-full rounded-full bg-[#0066FF] transition-all duration-500 ease-out"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        {!isWelcome && (
+          <span className="text-xs font-medium text-gray-400 tabular-nums whitespace-nowrap py-2">
+            {progress}%
+          </span>
+        )}
       </div>
 
-      {/* Header */}
-      <header className="fixed left-0 right-0 top-1 z-40 flex items-center justify-between px-6 py-4">
+      {/* Header — fixed with border-bottom */}
+      <header className="fixed left-0 right-0 top-[12px] z-40 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
         {/* Back button */}
         <button
           onClick={goBack}
@@ -256,24 +263,31 @@ export function OnboardingForm({
           </svg>
         </button>
 
-        {/* Logo */}
-        <span className="text-sm font-semibold tracking-tight text-gray-900">
+        {/* Logo — larger, bolder, branded color */}
+        <span className="text-2xl font-bold tracking-tight text-[#0066FF]">
           Coast Digital
         </span>
 
-        {/* Saving indicator */}
-        <div className="flex h-10 w-10 items-center justify-center">
-          {saving && (
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-200 border-t-[#0066FF]" />
+        {/* Question counter + saving indicator */}
+        <div className="flex items-center gap-3">
+          {currentQuestion && (
+            <span className="text-sm font-medium text-gray-400 tabular-nums">
+              {currentQuestion.number} / {TOTAL_QUESTIONS}
+            </span>
           )}
+          <div className="flex h-10 w-10 items-center justify-center">
+            {saving && (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-200 border-t-[#0066FF]" />
+            )}
+          </div>
         </div>
       </header>
 
-      {/* Content area */}
-      <main className="flex flex-1 items-center justify-center px-6 py-24">
+      {/* Content area — centered vertically and horizontally */}
+      <main className="flex flex-1 items-center justify-center px-6 pt-32 pb-24">
         <div
           key={currentIndex}
-          className={`w-full max-w-2xl ${
+          className={`w-full max-w-[640px] ${
             direction === "forward"
               ? "animate-slide-up"
               : "animate-slide-down"
@@ -281,22 +295,22 @@ export function OnboardingForm({
         >
           {/* Welcome screen */}
           {isWelcome && (
-            <div className="text-center">
-              <h1 className="mb-4 text-4xl font-bold text-gray-900 sm:text-5xl">
+            <div className="rounded-2xl bg-white p-10 text-center shadow-sm ring-1 ring-gray-100 sm:p-14">
+              <h1 className="mb-6 text-4xl font-bold leading-tight text-gray-900 sm:text-5xl">
                 Welcome, {clientName}{" "}
                 <span role="img" aria-label="wave">
                   &#128075;
                 </span>
               </h1>
-              <p className="mb-2 text-xl text-gray-500">
+              <p className="mb-3 text-lg text-gray-600 leading-relaxed sm:text-xl">
                 We&apos;re so glad to have you on board.
               </p>
-              <p className="mb-12 text-lg text-gray-400">
+              <p className="mb-14 text-lg text-gray-400">
                 This should take about 10 minutes.
               </p>
               <button
                 onClick={goNext}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#0066FF] px-8 py-4 text-lg font-medium text-white transition-colors hover:bg-[#0052cc]"
+                className="inline-flex w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-[#0066FF] px-10 py-4 text-lg font-semibold text-white transition-colors hover:bg-[#0052cc]"
               >
                 Let&apos;s get started
                 <svg
@@ -317,23 +331,20 @@ export function OnboardingForm({
 
           {/* Question screen */}
           {currentQuestion && (
-            <div>
-              {/* Section label + number */}
-              <div className="mb-6 flex items-center gap-3">
-                <span className="text-sm font-medium text-[#0066FF]">
+            <div className="space-y-8">
+              {/* Section pill badge */}
+              <div>
+                <span className="inline-block rounded-full bg-[#0066FF] px-4 py-1.5 text-sm font-semibold text-white">
                   {currentQuestion.sectionLabel}
-                </span>
-                <span className="text-sm text-gray-300">
-                  {currentQuestion.number} of {TOTAL_QUESTIONS}
                 </span>
               </div>
 
               {/* Question text */}
-              <h2 className="mb-8 text-2xl font-semibold leading-relaxed text-gray-900 sm:text-3xl">
+              <h2 className="text-2xl font-bold leading-snug text-gray-900 sm:text-3xl">
                 {currentQuestion.text}
               </h2>
 
-              {/* Text area */}
+              {/* Text area — full width */}
               <textarea
                 ref={textareaRef}
                 value={currentAnswer}
@@ -341,28 +352,47 @@ export function OnboardingForm({
                 onKeyDown={handleKeyDown}
                 placeholder="Type your answer here..."
                 rows={4}
-                className="w-full resize-none border-0 border-b-2 border-gray-200 bg-transparent text-lg text-gray-900 placeholder:text-gray-300 focus:border-[#0066FF] focus:outline-none focus:ring-0 transition-colors"
+                className="w-full resize-none rounded-xl border border-gray-200 bg-white px-5 py-4 text-lg text-gray-900 placeholder:text-gray-300 focus:border-[#0066FF] focus:outline-none focus:ring-2 focus:ring-[#0066FF]/20 transition-all"
               />
 
-              {/* Hint */}
-              <p className="mt-4 text-sm text-gray-300">
-                Press{" "}
-                <kbd className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-xs font-medium text-gray-400">
-                  Enter ↵
-                </kbd>{" "}
-                to continue &middot; <span className="text-gray-300">Shift+Enter for new line</span>
-              </p>
+              {/* OK button + hint */}
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={goNext}
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#0066FF] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#0052cc]"
+                >
+                  OK
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M5 12h14M12 5l7 7-7 7" />
+                  </svg>
+                </button>
+                <span className="text-xs text-gray-300">
+                  or press{" "}
+                  <kbd className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-400">
+                    Enter ↵
+                  </kbd>
+                </span>
+              </div>
             </div>
           )}
 
           {/* Final screen (before submit) */}
           {isComplete && (
-            <div className="text-center">
-              <div className="mb-6 text-5xl">&#127881;</div>
-              <h1 className="mb-4 text-3xl font-bold text-gray-900">
+            <div className="rounded-2xl bg-white p-10 text-center shadow-sm ring-1 ring-gray-100 sm:p-14">
+              <div className="mb-8 text-6xl">&#127881;</div>
+              <h1 className="mb-6 text-4xl font-bold text-gray-900">
                 You&apos;re all set!
               </h1>
-              <p className="mb-12 text-lg text-gray-500 leading-relaxed">
+              <p className="mb-14 text-lg text-gray-500 leading-relaxed">
                 Thanks for taking the time to fill this out.
                 <br />
                 The Coast Digital team will be in touch shortly.
@@ -370,7 +400,7 @@ export function OnboardingForm({
               <button
                 onClick={handleComplete}
                 disabled={saving}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#0066FF] px-8 py-4 text-lg font-medium text-white transition-colors hover:bg-[#0052cc] disabled:opacity-50"
+                className="inline-flex w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-[#0066FF] px-10 py-4 text-lg font-semibold text-white transition-colors hover:bg-[#0052cc] disabled:opacity-50"
               >
                 {saving ? "Submitting..." : "Submit"}
               </button>
@@ -378,30 +408,6 @@ export function OnboardingForm({
           )}
         </div>
       </main>
-
-      {/* Footer with OK button (only on question screens) */}
-      {currentQuestion && (
-        <footer className="fixed bottom-0 right-0 z-40 p-6">
-          <button
-            onClick={goNext}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#0066FF] px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-[#0052cc]"
-          >
-            OK
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M5 12h14M12 5l7 7-7 7" />
-            </svg>
-          </button>
-        </footer>
-      )}
     </div>
   );
 }
