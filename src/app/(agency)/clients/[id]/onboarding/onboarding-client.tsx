@@ -21,41 +21,8 @@ import {
   Copy,
   Link as LinkIcon,
 } from "lucide-react";
-
-// ---------- Question definitions ----------
-
-const PERFORMANCE_QUESTIONS = [
-  "How should we prioritize success across your business units (D2C, Loyalty Programs, Subscriptions, Retail, etc.) during this engagement?",
-  "If tradeoffs arise, is there a primary business unit we should optimize for, or should we evaluate each independently?",
-  "What is the current narrative on paid media this year? Are we achieving goals or falling behind? Please provide as much detail as possible.",
-  "What are your short term and/or long term goals moving forward that would define success for this engagement?",
-  "What KPIs are most important for us to track? Do you have any specific KPI targets we should aim for?",
-  "What is your current monthly budget for the ad platforms we'll be managing?",
-  "What is your target monthly budget for those platforms over the next few months/year?",
-  "Ideally we would be able to move budget between platforms to maximize performance. Does this work for your team?",
-  "In order to help us with ROI calculations, can you speak to product margins?",
-  "Are there any industry-specific advertising restrictions that we should be aware of?",
-  "Are there inventory constraints for specific product lines that we should be aware of?",
-  "Can you touch on key time periods/peak seasons for the business?",
-  "What is your main source of truth when assessing paid media performance?",
-  "What other tools and platforms are you currently using in your marketing efforts?",
-  "What does the current email marketing strategy look like?",
-  "Do you have any reporting needs that we should be aware of?",
-  "Do you have an in-house dev team or other developer contact you work with?",
-  "Do you use a product feed management platform?",
-];
-
-const CREATIVE_QUESTIONS = [
-  "Who should be our main point of contact for creative approval?",
-  "Who is your ideal customer and what are they looking for when coming to your site?",
-  "What are the key value propositions of your brand?",
-  "Are there any specific dos or don'ts when it comes to advertising?",
-  "Are there any brands with an advertising style or personality that you would love to see incorporated into your brand's advertising style?",
-  "Who are your top competitors?",
-  "Where can we locate your customer reviews?",
-  "Where can we locate your press mentions?",
-  "Do you have any in-house creative capabilities?",
-];
+import { QuestionsTab } from "./questions-tab";
+import type { OnboardingQuestion } from "./question-actions";
 
 const PLATFORMS: {
   name: PlatformName;
@@ -111,6 +78,7 @@ interface OnboardingClientProps {
   client: Client;
   initialResponses: ResponseRow[];
   initialPlatforms: PlatformRow[];
+  initialQuestions: OnboardingQuestion[];
   hasAssets: boolean;
   userId: string | null;
   onboardingToken: string | null;
@@ -123,13 +91,14 @@ export function OnboardingClient({
   client,
   initialResponses,
   initialPlatforms,
+  initialQuestions,
   hasAssets,
   onboardingToken,
   onboardingCompletedAt,
 }: OnboardingClientProps) {
   const [linkCopied, setLinkCopied] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<"questionnaire" | "platforms">(
+  const [activeTab, setActiveTab] = useState<"questionnaire" | "platforms" | "questions">(
     "questionnaire"
   );
   const [responses, setResponses] =
@@ -141,13 +110,19 @@ export function OnboardingClient({
   const responseMap = new Map<string, ResponseRow>();
   responses.forEach((r) => responseMap.set(r.question_key, r));
 
+  // Derive question lists from database
+  const activeQuestions = initialQuestions.filter((q) => q.is_active);
+  const perfQuestions = activeQuestions.filter((q) => q.section === "performance");
+  const creativeDbQuestions = activeQuestions.filter((q) => q.section === "creative");
+  const totalQuestions = activeQuestions.length;
+
   // Counts
-  const perfAnswered = PERFORMANCE_QUESTIONS.reduce((n, _, i) => {
-    const r = responseMap.get(`perf_${i + 1}`);
+  const perfAnswered = perfQuestions.reduce((n, q) => {
+    const r = responseMap.get(q.question_key);
     return n + (r?.response_text ? 1 : 0);
   }, 0);
-  const creativeAnswered = CREATIVE_QUESTIONS.reduce((n, _, i) => {
-    const r = responseMap.get(`creative_${i + 1}`);
+  const creativeAnswered = creativeDbQuestions.reduce((n, q) => {
+    const r = responseMap.get(q.question_key);
     return n + (r?.response_text ? 1 : 0);
   }, 0);
   const totalAnswered = perfAnswered + creativeAnswered;
@@ -155,7 +130,7 @@ export function OnboardingClient({
 
   // Completion: questions 60%, platforms 25%, assets 15%
   const completion = Math.round(
-    (totalAnswered / 27) * 0.6 * 100 +
+    (totalQuestions > 0 ? (totalAnswered / totalQuestions) * 0.6 * 100 : 0) +
       (verifiedCount / 6) * 0.25 * 100 +
       (hasAssets ? 1 : 0) * 0.15 * 100
   );
@@ -279,7 +254,7 @@ export function OnboardingClient({
         <Progress value={completion} />
         <div className="mt-2 flex gap-4 text-xs text-gray-500">
           <span>
-            Questions: {totalAnswered}/27
+            Questions: {totalAnswered}/{totalQuestions}
           </span>
           <span>
             Platforms verified: {verifiedCount}/6
@@ -312,21 +287,40 @@ export function OnboardingClient({
         >
           Platform Access
         </button>
+        <button
+          onClick={() => setActiveTab("questions")}
+          className={`px-4 py-2.5 text-sm font-medium transition-colors ${
+            activeTab === "questions"
+              ? "border-b-2 border-[#0066FF] text-[#0066FF]"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Questions
+        </button>
       </div>
 
       {/* Tab content */}
-      {activeTab === "questionnaire" ? (
+      {activeTab === "questionnaire" && (
         <QuestionnaireTab
           clientId={client.id}
+          perfQuestions={perfQuestions}
+          creativeQuestions={creativeDbQuestions}
           responseMap={responseMap}
           perfAnswered={perfAnswered}
           creativeAnswered={creativeAnswered}
           onResponseUpdate={updateResponseLocal}
         />
-      ) : (
+      )}
+      {activeTab === "platforms" && (
         <PlatformAccessTab
           platforms={platforms}
           onPlatformUpdate={updatePlatformLocal}
+        />
+      )}
+      {activeTab === "questions" && (
+        <QuestionsTab
+          clientId={client.id}
+          initialQuestions={initialQuestions}
         />
       )}
     </div>
@@ -337,12 +331,16 @@ export function OnboardingClient({
 
 function QuestionnaireTab({
   clientId,
+  perfQuestions,
+  creativeQuestions,
   responseMap,
   perfAnswered,
   creativeAnswered,
   onResponseUpdate,
 }: {
   clientId: string;
+  perfQuestions: OnboardingQuestion[];
+  creativeQuestions: OnboardingQuestion[];
   responseMap: Map<string, ResponseRow>;
   perfAnswered: number;
   creativeAnswered: number;
@@ -355,26 +353,27 @@ function QuestionnaireTab({
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">Performance</h2>
           <Badge variant="secondary">
-            {perfAnswered}/{PERFORMANCE_QUESTIONS.length} answered
+            {perfAnswered}/{perfQuestions.length} answered
           </Badge>
         </div>
         <div className="space-y-4">
-          {PERFORMANCE_QUESTIONS.map((q, i) => {
-            const key = `perf_${i + 1}`;
-            const existing = responseMap.get(key);
-            return (
-              <QuestionCard
-                key={key}
-                clientId={clientId}
-                section="performance"
-                questionKey={key}
-                questionNumber={i + 1}
-                questionText={q}
-                existingResponse={existing || null}
-                onSaved={(row) => onResponseUpdate(key, row)}
-              />
-            );
-          })}
+          {perfQuestions
+            .sort((a, b) => a.order_index - b.order_index)
+            .map((q, i) => {
+              const existing = responseMap.get(q.question_key);
+              return (
+                <QuestionCard
+                  key={q.question_key}
+                  clientId={clientId}
+                  section="performance"
+                  questionKey={q.question_key}
+                  questionNumber={i + 1}
+                  questionText={q.question_text}
+                  existingResponse={existing || null}
+                  onSaved={(row) => onResponseUpdate(q.question_key, row)}
+                />
+              );
+            })}
         </div>
       </section>
 
@@ -383,26 +382,27 @@ function QuestionnaireTab({
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">Creative</h2>
           <Badge variant="secondary">
-            {creativeAnswered}/{CREATIVE_QUESTIONS.length} answered
+            {creativeAnswered}/{creativeQuestions.length} answered
           </Badge>
         </div>
         <div className="space-y-4">
-          {CREATIVE_QUESTIONS.map((q, i) => {
-            const key = `creative_${i + 1}`;
-            const existing = responseMap.get(key);
-            return (
-              <QuestionCard
-                key={key}
-                clientId={clientId}
-                section="creative"
-                questionKey={key}
-                questionNumber={i + 19}
-                questionText={q}
-                existingResponse={existing || null}
-                onSaved={(row) => onResponseUpdate(key, row)}
-              />
-            );
-          })}
+          {creativeQuestions
+            .sort((a, b) => a.order_index - b.order_index)
+            .map((q, i) => {
+              const existing = responseMap.get(q.question_key);
+              return (
+                <QuestionCard
+                  key={q.question_key}
+                  clientId={clientId}
+                  section="creative"
+                  questionKey={q.question_key}
+                  questionNumber={perfQuestions.length + i + 1}
+                  questionText={q.question_text}
+                  existingResponse={existing || null}
+                  onSaved={(row) => onResponseUpdate(q.question_key, row)}
+                />
+              );
+            })}
         </div>
       </section>
     </div>

@@ -50,14 +50,23 @@ export default async function PublicOnboardingPage({
     );
   }
 
-  // Fetch existing responses to pre-fill
-  const { data: responses } = await supabase
-    .from("onboarding_responses")
-    .select("question_key, response_text")
-    .eq("client_id", client.id);
+  // Fetch questions and existing responses in parallel
+  const [responsesRes, questionsRes] = await Promise.all([
+    supabase
+      .from("onboarding_responses")
+      .select("question_key, response_text")
+      .eq("client_id", client.id),
+    supabase
+      .from("onboarding_questions")
+      .select("id, question_key, question_text, section, order_index")
+      .eq("client_id", client.id)
+      .eq("is_active", true)
+      .order("section")
+      .order("order_index"),
+  ]);
 
   const responseMap: Record<string, string> = {};
-  (responses || []).forEach((r) => {
+  (responsesRes.data || []).forEach((r) => {
     if (r.response_text) {
       responseMap[r.question_key] = r.response_text;
     }
@@ -68,6 +77,7 @@ export default async function PublicOnboardingPage({
       clientId={client.id}
       clientName={client.name}
       token={token}
+      questions={questionsRes.data || []}
       initialResponses={responseMap}
     />
   );

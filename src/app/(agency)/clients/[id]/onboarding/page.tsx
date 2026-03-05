@@ -11,7 +11,7 @@ export default async function ClientOnboardingPage({
   const supabase = await createClient();
 
   // Fetch all data in parallel
-  const [clientRes, responsesRes, platformsRes, assetsRes, userRes] =
+  const [clientRes, responsesRes, platformsRes, assetsRes, userRes, questionsRes] =
     await Promise.all([
       supabase.from("clients").select("*").eq("id", clientId).single(),
       supabase
@@ -32,6 +32,12 @@ export default async function ClientOnboardingPage({
         .eq("client_id", clientId)
         .limit(1),
       supabase.auth.getUser(),
+      supabase
+        .from("onboarding_questions")
+        .select("*")
+        .eq("client_id", clientId)
+        .order("section")
+        .order("order_index"),
     ]);
 
   if (!clientRes.data) {
@@ -43,6 +49,7 @@ export default async function ClientOnboardingPage({
       client={clientRes.data}
       initialResponses={responsesRes.data || []}
       initialPlatforms={platformsRes.data || []}
+      initialQuestions={questionsRes.data || []}
       hasAssets={(assetsRes.data || []).length > 0}
       userId={userRes.data.user?.id || null}
       onboardingToken={clientRes.data.onboarding_token || null}

@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import type { ClientStatus, PlatformName, PlatformAccessStatus } from "@/lib/types";
+import { DEFAULT_QUESTIONS } from "@/lib/default-questions";
 
 interface PlatformInput {
   platform: PlatformName;
@@ -63,6 +64,24 @@ export async function createClientAction(input: CreateClientInput) {
 
   if (platformError) {
     console.error("Platform access error:", platformError);
+    // Non-blocking - client was still created
+  }
+
+  // 3b. Seed default onboarding questions
+  const questionRows = DEFAULT_QUESTIONS.map((q) => ({
+    client_id: client.id,
+    section: q.section,
+    question_key: q.question_key,
+    question_text: q.question_text,
+    order_index: q.order_index,
+  }));
+
+  const { error: questionError } = await supabase
+    .from("onboarding_questions")
+    .insert(questionRows);
+
+  if (questionError) {
+    console.error("Question seeding error:", questionError);
     // Non-blocking - client was still created
   }
 

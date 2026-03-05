@@ -1,42 +1,17 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { savePublicResponse, markOnboardingComplete } from "./actions";
 
-// ---------- Question definitions ----------
+// ---------- Types ----------
 
-const PERFORMANCE_QUESTIONS = [
-  "How should we prioritize success across your business units (D2C, Loyalty Programs, Subscriptions, Retail, etc.) during this engagement?",
-  "If tradeoffs arise, is there a primary business unit we should optimize for, or should we evaluate each independently?",
-  "What is the current narrative on paid media this year? Are we achieving goals or falling behind? Please provide as much detail as possible.",
-  "What are your short term and/or long term goals moving forward that would define success for this engagement?",
-  "What KPIs are most important for us to track? Do you have any specific KPI targets we should aim for?",
-  "What is your current monthly budget for the ad platforms we'll be managing?",
-  "What is your target monthly budget for those platforms over the next few months/year?",
-  "Ideally we would be able to move budget between platforms to maximize performance. Does this work for your team?",
-  "In order to help us with ROI calculations, can you speak to product margins?",
-  "Are there any industry-specific advertising restrictions that we should be aware of?",
-  "Are there inventory constraints for specific product lines that we should be aware of?",
-  "Can you touch on key time periods/peak seasons for the business?",
-  "What is your main source of truth when assessing paid media performance?",
-  "What other tools and platforms are you currently using in your marketing efforts?",
-  "What does the current email marketing strategy look like?",
-  "Do you have any reporting needs that we should be aware of?",
-  "Do you have an in-house dev team or other developer contact you work with?",
-  "Do you use a product feed management platform?",
-];
-
-const CREATIVE_QUESTIONS = [
-  "Who should be our main point of contact for creative approval?",
-  "Who is your ideal customer and what are they looking for when coming to your site?",
-  "What are the key value propositions of your brand?",
-  "Are there any specific dos or don'ts when it comes to advertising?",
-  "Are there any brands with an advertising style or personality that you would love to see incorporated into your brand's advertising style?",
-  "Who are your top competitors?",
-  "Where can we locate your customer reviews?",
-  "Where can we locate your press mentions?",
-  "Do you have any in-house creative capabilities?",
-];
+export interface FormQuestion {
+  id: string;
+  question_key: string;
+  question_text: string;
+  section: "performance" | "creative";
+  order_index: number;
+}
 
 interface Question {
   key: string;
@@ -46,39 +21,43 @@ interface Question {
   number: number;
 }
 
-const ALL_QUESTIONS: Question[] = [
-  ...PERFORMANCE_QUESTIONS.map((text, i) => ({
-    key: `perf_${i + 1}`,
-    text,
-    section: "performance" as const,
-    sectionLabel: "Performance",
-    number: i + 1,
-  })),
-  ...CREATIVE_QUESTIONS.map((text, i) => ({
-    key: `creative_${i + 1}`,
-    text,
-    section: "creative" as const,
-    sectionLabel: "Creative",
-    number: PERFORMANCE_QUESTIONS.length + i + 1,
-  })),
-];
-
-const TOTAL_QUESTIONS = ALL_QUESTIONS.length;
-
 // ---------- Component ----------
 
 interface OnboardingFormProps {
   clientId: string;
   clientName: string;
   token: string;
+  questions: FormQuestion[];
   initialResponses: Record<string, string>;
 }
 
 export function OnboardingForm({
   clientId,
   clientName,
+  questions,
   initialResponses,
 }: OnboardingFormProps) {
+  // Build the ordered question list from database questions
+  const ALL_QUESTIONS: Question[] = useMemo(() => {
+    const perf = questions
+      .filter((q) => q.section === "performance")
+      .sort((a, b) => a.order_index - b.order_index);
+    const creative = questions
+      .filter((q) => q.section === "creative")
+      .sort((a, b) => a.order_index - b.order_index);
+    const ordered = [...perf, ...creative];
+
+    return ordered.map((q, i) => ({
+      key: q.question_key,
+      text: q.question_text,
+      section: q.section,
+      sectionLabel: q.section === "performance" ? "Performance" : "Creative",
+      number: i + 1,
+    }));
+  }, [questions]);
+
+  const TOTAL_QUESTIONS = ALL_QUESTIONS.length;
+
   // Find the first unanswered question to start from, or 0 (welcome) if none answered
   const firstUnanswered = ALL_QUESTIONS.findIndex(
     (q) => !initialResponses[q.key]
@@ -142,7 +121,7 @@ export function OnboardingForm({
       });
       setSaving(false);
     },
-    [clientId]
+    [clientId, ALL_QUESTIONS]
   );
 
   // Go to next question
@@ -158,7 +137,7 @@ export function OnboardingForm({
 
     setDirection("forward");
     setCurrentIndex((prev) => Math.min(prev + 1, TOTAL_QUESTIONS + 1));
-  }, [currentQuestion, currentAnswer, saveAnswer]);
+  }, [currentQuestion, currentAnswer, saveAnswer, TOTAL_QUESTIONS]);
 
   // Go to previous question
   const goBack = useCallback(() => {
