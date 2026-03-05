@@ -50,8 +50,8 @@ export default async function PublicOnboardingPage({
     );
   }
 
-  // Fetch questions and existing responses in parallel
-  const [responsesRes, questionsRes] = await Promise.all([
+  // Fetch questions, existing responses, and platform access in parallel
+  const [responsesRes, questionsRes, platformRes] = await Promise.all([
     supabase
       .from("onboarding_responses")
       .select("question_key, response_text")
@@ -63,6 +63,10 @@ export default async function PublicOnboardingPage({
       .eq("is_active", true)
       .order("section")
       .order("order_index"),
+    supabase
+      .from("platform_access")
+      .select("platform, status, notes")
+      .eq("client_id", client.id),
   ]);
 
   const responseMap: Record<string, string> = {};
@@ -72,6 +76,12 @@ export default async function PublicOnboardingPage({
     }
   });
 
+  const platformAccess = (platformRes.data || []).map((p) => ({
+    platform: p.platform as string,
+    status: p.status as string,
+    notes: (p.notes as string) || "",
+  }));
+
   return (
     <OnboardingForm
       clientId={client.id}
@@ -79,6 +89,7 @@ export default async function PublicOnboardingPage({
       token={token}
       questions={questionsRes.data || []}
       initialResponses={responseMap}
+      initialPlatformAccess={platformAccess}
     />
   );
 }
