@@ -32,3 +32,34 @@ body {
 .slide-in-from-bottom-5 {
   animation-name: slide-in-from-bottom-5;
 }
+
+/* Typeform-style slide animations */
+@keyframes slide-up-in {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-down-in {
+  from {
+    transform: translateY(-40px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-slide-down {
+  animation: slide-down-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}

@@ -45,6 +45,8 @@ export default async function ClientOnboardingPage({
       initialPlatforms={platformsRes.data || []}
       hasAssets={(assetsRes.data || []).length > 0}
       userId={userRes.data.user?.id || null}
+      onboardingToken={clientRes.data.onboarding_token || null}
+      onboardingCompletedAt={clientRes.data.onboarding_completed_at || null}
     />
   );
 }

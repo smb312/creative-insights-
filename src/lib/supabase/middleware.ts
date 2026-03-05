@@ -37,7 +37,9 @@ export async function updateSession(request: NextRequest) {
 
   // Public routes that don't require auth
   const isPublicRoute =
-    pathname === "/login" || pathname.startsWith("/auth/callback");
+    pathname === "/login" ||
+    pathname.startsWith("/auth/callback") ||
+    pathname.startsWith("/onboarding");
 
   // If not authenticated and trying to access protected route, redirect to login
   if (!user && !isPublicRoute) {

@@ -42,6 +42,8 @@ export interface Client {
   primary_contact_email: string | null;
   agency_contact_id: string | null;
   status: ClientStatus;
+  onboarding_token: string | null;
+  onboarding_completed_at: string | null;
   created_at: string;
 }
 

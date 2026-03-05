@@ -18,6 +18,8 @@ import {
   Check,
   ExternalLink,
   Clock,
+  Copy,
+  Link as LinkIcon,
 } from "lucide-react";
 
 // ---------- Question definitions ----------
@@ -111,6 +113,8 @@ interface OnboardingClientProps {
   initialPlatforms: PlatformRow[];
   hasAssets: boolean;
   userId: string | null;
+  onboardingToken: string | null;
+  onboardingCompletedAt: string | null;
 }
 
 // ---------- Component ----------
@@ -120,7 +124,11 @@ export function OnboardingClient({
   initialResponses,
   initialPlatforms,
   hasAssets,
+  onboardingToken,
+  onboardingCompletedAt,
 }: OnboardingClientProps) {
+  const [linkCopied, setLinkCopied] = useState(false);
+
   const [activeTab, setActiveTab] = useState<"questionnaire" | "platforms">(
     "questionnaire"
   );
@@ -197,6 +205,66 @@ export function OnboardingClient({
       </div>
 
       <h1 className="mb-6 text-2xl font-bold text-gray-900">Onboarding</h1>
+
+      {/* Client Onboarding Link */}
+      {onboardingToken && (
+        <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <LinkIcon className="h-4 w-4 text-gray-500" />
+              <span className="text-sm font-medium text-gray-700">
+                Client Onboarding Link
+              </span>
+            </div>
+            <Badge
+              variant={
+                onboardingCompletedAt
+                  ? "active"
+                  : totalAnswered > 0
+                    ? "onboarding"
+                    : "secondary"
+              }
+            >
+              {onboardingCompletedAt
+                ? "Completed"
+                : totalAnswered > 0
+                  ? "In Progress"
+                  : "Not Started"}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 truncate rounded bg-gray-50 px-3 py-2 text-sm text-gray-600">
+              {typeof window !== "undefined"
+                ? `${window.location.origin}/onboarding/${onboardingToken}`
+                : `/onboarding/${onboardingToken}`}
+            </code>
+            <button
+              onClick={() => {
+                const url = `${window.location.origin}/onboarding/${onboardingToken}`;
+                navigator.clipboard.writeText(url);
+                setLinkCopied(true);
+                setTimeout(() => setLinkCopied(false), 2000);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md bg-[#0066FF] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#0052cc]"
+            >
+              <Copy className="h-3.5 w-3.5" />
+              {linkCopied ? "Copied!" : "Copy Link"}
+            </button>
+          </div>
+          {onboardingCompletedAt && (
+            <p className="mt-2 text-xs text-gray-400">
+              Completed on{" "}
+              {new Date(onboardingCompletedAt).toLocaleDateString("en-US", {
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Completion bar */}
       <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4">
