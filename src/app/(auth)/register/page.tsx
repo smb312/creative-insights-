@@ -8,19 +8,45 @@ import { Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
+      return;
+    }
+
     setLoading(true);
 
     try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Registration failed");
+        return;
+      }
+
       const result = await signIn("credentials", {
         email,
         password,
@@ -28,9 +54,9 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
-        setError("Invalid email or password");
+        setError("Account created but sign in failed. Please try logging in.");
       } else {
-        router.push("/dashboard");
+        router.push("/onboarding");
         router.refresh();
       }
     } catch {
@@ -51,10 +77,10 @@ export default function LoginPage() {
             </span>
           </Link>
           <h1 className="mt-6 text-2xl font-bold text-gray-900">
-            Sign in to Brand Pulse
+            Create your Brand Pulse account
           </h1>
           <p className="mt-2 text-sm text-gray-600">
-            Welcome back — your brief is waiting
+            Get your free weekly performance brief
           </p>
         </div>
 
@@ -65,6 +91,16 @@ export default function LoginPage() {
                 {error}
               </div>
             )}
+
+            <Input
+              id="name"
+              label="Full Name"
+              type="text"
+              placeholder="John Doe"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
 
             <Input
               id="email"
@@ -80,24 +116,34 @@ export default function LoginPage() {
               id="password"
               label="Password"
               type="password"
-              placeholder="Enter your password"
+              placeholder="Minimum 8 characters"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
 
+            <Input
+              id="confirmPassword"
+              label="Confirm Password"
+              type="password"
+              placeholder="Confirm your password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
+
             <Button type="submit" className="w-full" loading={loading}>
-              Sign In
+              Create Account
             </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-gray-600">
-            Don&apos;t have an account?{" "}
+            Already have an account?{" "}
             <Link
-              href="/register"
+              href="/login"
               className="font-medium text-blue-600 hover:text-blue-500"
             >
-              Sign up
+              Sign in
             </Link>
           </p>
         </div>
